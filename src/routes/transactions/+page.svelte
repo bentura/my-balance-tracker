@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { Modal } from '$lib/components';
 	import {
 		accounts,
 		getStorage,
@@ -10,6 +11,8 @@
 
 	let transactions = $state<Transaction[]>([]);
 	let isLoading = $state(true);
+	let showDeleteConfirm = $state(false);
+	let txToDelete = $state<Transaction | null>(null);
 
 	// Filters
 	let filterAccount = $state('');
@@ -54,9 +57,18 @@
 		loadTransactions();
 	};
 
-	const removeTx = async (id: number) => {
-		await deleteTransaction(id, true);
-		await loadTransactions();
+	const confirmRemoveTx = (tx: Transaction) => {
+		txToDelete = tx;
+		showDeleteConfirm = true;
+	};
+
+	const removeTx = async () => {
+		if (txToDelete?.id) {
+			await deleteTransaction(txToDelete.id, true);
+			await loadTransactions();
+		}
+		showDeleteConfirm = false;
+		txToDelete = null;
 	};
 
 	const formatCurrency = (amount: number, accountId: number) => {
@@ -218,7 +230,7 @@
 								<!-- Delete -->
 								<button
 									class="ml-2 text-slate hover:text-red-600"
-									onclick={() => removeTx(tx.id!)}
+									onclick={() => confirmRemoveTx(tx)}
 									aria-label="Delete"
 								>
 									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -233,3 +245,26 @@
 		{/if}
 	</div>
 </main>
+
+<!-- Delete Confirmation Modal -->
+<Modal
+	isOpen={showDeleteConfirm}
+	title="Delete Transaction?"
+	onClose={() => { showDeleteConfirm = false; txToDelete = null; }}
+	size="sm"
+>
+	<div class="space-y-4">
+		<p class="text-sm text-slate">
+			Are you sure you want to delete <strong>{txToDelete?.description}</strong> ({txToDelete ? new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(txToDelete.amount) : ''})?
+		</p>
+		<p class="text-xs text-slate">This will adjust the account balance.</p>
+		<div class="flex gap-3">
+			<button class="button-secondary flex-1" onclick={() => { showDeleteConfirm = false; txToDelete = null; }}>
+				Cancel
+			</button>
+			<button class="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700" onclick={removeTx}>
+				Delete
+			</button>
+		</div>
+	</div>
+</Modal>

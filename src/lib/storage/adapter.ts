@@ -67,8 +67,15 @@ export interface TransactionQueryOptions {
 }
 
 // Default settings
-export const defaultSettings: AppSettings = {
-	hasCompletedOnboarding: false,
-	defaultCurrency: 'GBP',
-	projectionDays: 30
+export const getDefaultSettings = (): AppSettings => {
+	// Calculate days until end of current month
+	const today = new Date();
+	const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+	const daysUntilEnd = Math.ceil((lastDayOfMonth.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+	
+	return {
+		hasCompletedOnboarding: false,
+		defaultCurrency: 'GBP',
+		projectionDays: daysUntilEnd
+	};
 };

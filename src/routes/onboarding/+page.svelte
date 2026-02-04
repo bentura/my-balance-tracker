@@ -13,6 +13,7 @@
 	];
 
 	const addAccount = async () => {
+		console.log('Add account clicked', { name, balance, currency });
 		const balanceNum = parseFloat(balance);
 		if (!name.trim()) {
 			showFeedback('Please enter an account name', 'error');
@@ -23,15 +24,20 @@
 			return;
 		}
 
-		await createAccount({
-			name: name.trim(),
-			balance: balanceNum,
-			currency
-		});
-
-		// Reset form
-		name = '';
-		balance = '';
+		try {
+			await createAccount({
+				name: name.trim(),
+				balance: balanceNum,
+				currency
+			});
+			console.log('Account created successfully');
+			// Reset form
+			name = '';
+			balance = '';
+		} catch (err) {
+			console.error('Failed to create account:', err);
+			showFeedback('Failed to create account', 'error');
+		}
 	};
 
 	const removeAccount = async (id: number) => {
@@ -95,7 +101,7 @@
 			</div>
 		</div>
 
-		<button class="button w-full" onclick={addAccount}>
+		<button type="button" class="button w-full" onclick={addAccount}>
 			Add Account
 		</button>
 	</div>

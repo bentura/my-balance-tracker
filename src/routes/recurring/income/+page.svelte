@@ -15,6 +15,8 @@
 
 	let showAddModal = $state(false);
 	let editingItem = $state<RecurringItem | null>(null);
+	let showDeleteConfirm = $state(false);
+	let itemToDelete = $state<RecurringItem | null>(null);
 
 	// Form state
 	let name = $state('');
@@ -95,8 +97,17 @@
 		await updateRecurringItem(item.id!, { isActive: !item.isActive });
 	};
 
-	const removeItem = async (id: number) => {
-		await deleteRecurringItem(id);
+	const confirmRemoveItem = (item: RecurringItem) => {
+		itemToDelete = item;
+		showDeleteConfirm = true;
+	};
+
+	const removeItem = async () => {
+		if (itemToDelete?.id) {
+			await deleteRecurringItem(itemToDelete.id);
+		}
+		showDeleteConfirm = false;
+		itemToDelete = null;
 	};
 
 	const formatCurrency = (amt: number, accountId: number) => {
@@ -120,14 +131,9 @@
 
 <main class="min-h-screen bg-oat px-4 py-6 pt-16">
 	<div class="mx-auto max-w-2xl">
-		<div class="mb-6 flex items-center justify-between">
-			<div>
-				<h1 class="font-serif text-2xl font-semibold">Regular Income</h1>
-				<p class="text-sm text-slate">Monthly: {formatCurrency(monthlyTotal, $accounts[0]?.id ?? 0)}</p>
-			</div>
-			<button class="button" onclick={openAddModal}>
-				+ Add Income
-			</button>
+		<div class="mb-6">
+			<h1 class="font-serif text-2xl font-semibold">Regular Income</h1>
+			<p class="text-sm text-slate">Monthly: {formatCurrency(monthlyTotal, $accounts[0]?.id ?? 0)}</p>
 		</div>
 
 		{#if $recurringIncome.length === 0}
@@ -136,6 +142,10 @@
 				<button class="button mt-4" onclick={openAddModal}>Add your first income</button>
 			</div>
 		{:else}
+			<button class="button mb-4 w-full" onclick={openAddModal}>
+				+ Add Income
+			</button>
+
 			<div class="space-y-2">
 				{#each $recurringIncome as item}
 					<div
@@ -174,7 +184,7 @@
 							</button>
 							<button
 								class="rounded p-1 hover:bg-oat"
-								onclick={() => removeItem(item.id!)}
+								onclick={() => confirmRemoveItem(item)}
 								title="Delete"
 							>
 								🗑️
@@ -256,6 +266,28 @@
 			</button>
 			<button class="button flex-1" onclick={saveItem}>
 				{editingItem ? 'Save Changes' : 'Add Income'}
+			</button>
+		</div>
+	</div>
+</Modal>
+
+<!-- Delete Confirmation Modal -->
+<Modal
+	isOpen={showDeleteConfirm}
+	title="Delete Income?"
+	onClose={() => { showDeleteConfirm = false; itemToDelete = null; }}
+	size="sm"
+>
+	<div class="space-y-4">
+		<p class="text-sm text-slate">
+			Are you sure you want to delete <strong>{itemToDelete?.name}</strong>?
+		</p>
+		<div class="flex gap-3">
+			<button class="button-secondary flex-1" onclick={() => { showDeleteConfirm = false; itemToDelete = null; }}>
+				Cancel
+			</button>
+			<button class="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700" onclick={removeItem}>
+				Delete
 			</button>
 		</div>
 	</div>

@@ -99,14 +99,9 @@
 <main class="min-h-screen bg-oat px-4 py-6 pt-16">
 	<div class="mx-auto max-w-2xl">
 		<!-- Header -->
-		<div class="mb-6 flex items-center justify-between">
-			<div>
-				<h1 class="font-serif text-2xl font-semibold">Your Accounts</h1>
-				<p class="text-sm text-slate">Current and projected balances</p>
-			</div>
-			<button class="button" onclick={openAddTransaction}>
-				+ Add Transaction
-			</button>
+		<div class="mb-6">
+			<h1 class="font-serif text-2xl font-semibold">Your Accounts</h1>
+			<p class="text-sm text-slate">Current and projected balances</p>
 		</div>
 
 		<!-- Account cards -->
@@ -148,6 +143,11 @@
 				{/each}
 			{/if}
 		</div>
+
+		<!-- Add Transaction button -->
+		<button class="button mt-4 w-full" onclick={openAddTransaction}>
+			+ Add Transaction
+		</button>
 
 		<!-- Recent transactions -->
 		<div class="mt-8">

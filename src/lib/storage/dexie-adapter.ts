@@ -9,7 +9,7 @@ import type {
 	AppSettings,
 	ExportData
 } from '$lib/types';
-import { type StorageAdapter, type TransactionQueryOptions, defaultSettings } from './adapter';
+import { type StorageAdapter, type TransactionQueryOptions, getDefaultSettings } from './adapter';
 
 class MbtDatabase extends Dexie {
 	accounts!: Table<Account, number>;
@@ -20,10 +20,10 @@ class MbtDatabase extends Dexie {
 
 	constructor() {
 		super('mbt-db');
-		this.version(1).stores({
+		this.version(2).stores({
 			accounts: '++id, name, createdAt',
 			categories: '++id, name',
-			recurringItems: '++id, type, accountId, isActive',
+			recurringItems: '++id, type, accountId, isActive, createdAt',
 			transactions: '++id, accountId, categoryId, date, isApplied, recurringId',
 			settings: 'id'
 		});
@@ -41,7 +41,7 @@ export class DexieAdapter implements StorageAdapter {
 		// Ensure default settings exist
 		const existing = await this.db.settings.get(1);
 		if (!existing) {
-			await this.db.settings.put({ ...defaultSettings, id: 1 });
+			await this.db.settings.put({ ...getDefaultSettings(), id: 1 });
 		}
 	}
 

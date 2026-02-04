@@ -61,6 +61,22 @@
 		</div>
 
 		<div class="card mt-4">
+			<h2 class="mb-3 font-semibold">Data & Privacy</h2>
+			<p class="text-sm text-slate mb-3">
+				<strong>Currently:</strong> All your data stays on your device only. 
+				We never see your financial information.
+			</p>
+			<p class="text-sm text-slate mb-3">
+				<strong>With Sync enabled:</strong> Your data will be encrypted and stored 
+				on our servers to enable syncing across devices. You maintain full control 
+				and can delete your data at any time.
+			</p>
+			<p class="text-sm text-slate">
+				We will never sell or share your data with third parties.
+			</p>
+		</div>
+
+		<div class="card mt-4">
 			<h2 class="mb-3 font-semibold">Self-Hosted Option</h2>
 			<p class="text-sm text-slate">
 				Prefer to host your own data? We'll also be releasing a Docker version
