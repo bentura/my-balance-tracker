@@ -20,6 +20,7 @@ export const accounts = writable<Account[]>([]);
 export const categories = writable<Category[]>([]);
 export const recurringItems = writable<RecurringItem[]>([]);
 export const recentTransactions = writable<Transaction[]>([]);
+export const pendingTransactions = writable<Transaction[]>([]);
 export const settings = writable<AppSettings | null>(null);
 
 // UI state
@@ -75,6 +76,18 @@ export const getProjectedBalance = (accountId: number): number => {
 		const occurrences = countOccurrencesInPeriod(item, today, endDate);
 		const amount = item.type === 'in' ? item.amount : -item.amount;
 		projected += amount * occurrences;
+	}
+
+	// Add future manual transactions
+	const $pendingTransactions = get(pendingTransactions);
+	for (const tx of $pendingTransactions) {
+		if (tx.accountId === accountId && tx.date) {
+			const txDate = new Date(tx.date);
+			if (txDate <= endDate) {
+				const amount = tx.type === 'in' ? tx.amount : -tx.amount;
+				projected += amount;
+			}
+		}
 	}
 
 	return projected;
@@ -146,12 +159,14 @@ export const refreshAll = async (): Promise<void> => {
 		categoriesData,
 		recurringData,
 		transactionsData,
+		pendingData,
 		settingsData
 	] = await Promise.all([
 		storage.getAccounts(),
 		storage.getCategories(),
 		storage.getRecurringItems(),
 		storage.getRecentTransactions(10),
+		storage.getPendingTransactions(),
 		storage.getSettings()
 	]);
 
@@ -159,6 +174,7 @@ export const refreshAll = async (): Promise<void> => {
 	categories.set(categoriesData);
 	recurringItems.set(recurringData);
 	recentTransactions.set(transactionsData);
+	pendingTransactions.set(pendingData);
 	settings.set(settingsData);
 };
 

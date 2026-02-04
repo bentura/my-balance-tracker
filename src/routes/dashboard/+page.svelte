@@ -6,6 +6,7 @@
 		categories,
 		recentTransactions,
 		createTransaction,
+		createAccount,
 		getProjectedBalance,
 		getAccountById,
 		getCategoryById,
@@ -30,6 +31,18 @@
 	let txAccountId = $state('');
 	let txCategoryId = $state('');
 	let txDate = $state(new Date().toISOString().slice(0, 10));
+
+	// Add Account modal state
+	let showAddAccount = $state(false);
+	let newAccountName = $state('');
+	let newAccountBalance = $state('');
+	let newAccountCurrency = $state('GBP');
+
+	const currencies = [
+		{ code: 'GBP', symbol: '£', name: 'British Pound' },
+		{ code: 'USD', symbol: '$', name: 'US Dollar' },
+		{ code: 'EUR', symbol: '€', name: 'Euro' },
+	];
 
 	const openAddTransaction = () => {
 		// Reset form
@@ -70,6 +83,29 @@
 		});
 
 		showAddTransaction = false;
+	};
+
+	const submitNewAccount = async () => {
+		const balance = parseFloat(newAccountBalance);
+		if (!newAccountName.trim()) {
+			showFeedback('Please enter an account name', 'error');
+			return;
+		}
+		if (isNaN(balance)) {
+			showFeedback('Please enter a valid balance', 'error');
+			return;
+		}
+
+		await createAccount({
+			name: newAccountName.trim(),
+			balance,
+			currency: newAccountCurrency
+		});
+
+		newAccountName = '';
+		newAccountBalance = '';
+		newAccountCurrency = 'GBP';
+		showAddAccount = false;
 	};
 
 	const formatCurrency = (amount: number, currency = 'GBP') => {
@@ -144,10 +180,15 @@
 			{/if}
 		</div>
 
-		<!-- Add Transaction button -->
-		<button class="button mt-4 w-full" onclick={openAddTransaction}>
-			+ Add Transaction
-		</button>
+		<!-- Action buttons -->
+		<div class="mt-4 grid grid-cols-2 gap-3">
+			<button class="button" onclick={openAddTransaction}>
+				+ Add Transaction
+			</button>
+			<button class="button-secondary" onclick={() => showAddAccount = true}>
+				+ Add Account
+			</button>
+		</div>
 
 		<!-- Recent transactions -->
 		<div class="mt-8">
@@ -190,6 +231,12 @@
 								<p class="font-medium">{tx.description}</p>
 								<p class="text-sm text-slate">
 									{formatDate(tx.date)} · {account?.name ?? 'Unknown'}
+									{#if tx.categoryId}
+										{@const category = getCategoryById(tx.categoryId)}
+										{#if category}
+											<span class="ml-1 rounded bg-slate/10 px-1.5 py-0.5 text-xs" style="color: {category.color ?? '#5b6770'}">{category.name}</span>
+										{/if}
+									{/if}
 								</p>
 							</div>
 
@@ -293,6 +340,57 @@
 			</button>
 			<button class="button flex-1" onclick={submitTransaction}>
 				Add Transaction
+			</button>
+		</div>
+	</div>
+</Modal>
+
+<!-- Add Account Modal -->
+<Modal
+	isOpen={showAddAccount}
+	title="Add Account"
+	onClose={() => showAddAccount = false}
+>
+	<div class="space-y-4">
+		<div>
+			<label class="label" for="new-account-name">Account Name</label>
+			<input
+				id="new-account-name"
+				class="input"
+				placeholder="e.g. Savings, Cash"
+				bind:value={newAccountName}
+			/>
+		</div>
+
+		<div class="grid grid-cols-2 gap-4">
+			<div>
+				<label class="label" for="new-account-balance">Current Balance</label>
+				<input
+					id="new-account-balance"
+					class="input"
+					type="number"
+					step="0.01"
+					placeholder="0.00"
+					bind:value={newAccountBalance}
+				/>
+			</div>
+
+			<div>
+				<label class="label" for="new-account-currency">Currency</label>
+				<select id="new-account-currency" class="input" bind:value={newAccountCurrency}>
+					{#each currencies as c}
+						<option value={c.code}>{c.symbol} {c.code}</option>
+					{/each}
+				</select>
+			</div>
+		</div>
+
+		<div class="flex gap-3 pt-2">
+			<button class="button-secondary flex-1" onclick={() => showAddAccount = false}>
+				Cancel
+			</button>
+			<button class="button flex-1" onclick={submitNewAccount}>
+				Add Account
 			</button>
 		</div>
 	</div>

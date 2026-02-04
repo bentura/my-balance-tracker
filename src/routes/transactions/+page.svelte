@@ -3,8 +3,10 @@
 	import { Modal } from '$lib/components';
 	import {
 		accounts,
+		categories,
 		getStorage,
 		getAccountById,
+		getCategoryById,
 		deleteTransaction
 	} from '$lib/stores';
 	import type { Transaction } from '$lib/types';
@@ -17,6 +19,7 @@
 	// Filters
 	let filterAccount = $state('');
 	let filterType = $state('');
+	let filterCategory = $state('');
 	let filterFrom = $state('');
 	let filterTo = $state('');
 
@@ -33,7 +36,7 @@
 		const threeMonthsAgo = new Date();
 		threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-		transactions = await storage.getTransactions({
+		let txs = await storage.getTransactions({
 			fromDate: filterFrom || threeMonthsAgo.toISOString().slice(0, 10),
 			toDate: filterTo || undefined,
 			accountId: filterAccount ? parseInt(filterAccount, 10) : undefined,
@@ -42,6 +45,17 @@
 			limit: 200
 		});
 
+		// Filter by category client-side
+		if (filterCategory) {
+			if (filterCategory === 'none') {
+				txs = txs.filter(tx => !tx.categoryId);
+			} else {
+				const catId = parseInt(filterCategory, 10);
+				txs = txs.filter(tx => tx.categoryId === catId);
+			}
+		}
+
+		transactions = txs;
 		isLoading = false;
 	};
 
@@ -52,6 +66,7 @@
 	const clearFilters = () => {
 		filterAccount = '';
 		filterType = '';
+		filterCategory = '';
 		filterFrom = '';
 		filterTo = '';
 		loadTransactions();
@@ -140,6 +155,17 @@
 						<option value="">All types</option>
 						<option value="in">Incoming</option>
 						<option value="out">Outgoing</option>
+					</select>
+				</div>
+
+				<div>
+					<label class="label" for="filter-category">Category</label>
+					<select id="filter-category" class="input" bind:value={filterCategory}>
+						<option value="">All categories</option>
+						<option value="none">Uncategorized</option>
+						{#each $categories as category}
+							<option value={category.id}>{category.name}</option>
+						{/each}
 					</select>
 				</div>
 
