@@ -2,11 +2,13 @@
 	import { Modal } from '$lib/components';
 	import {
 		accounts,
+		categories,
 		recurringOutgoings,
 		createRecurringItem,
 		updateRecurringItem,
 		deleteRecurringItem,
 		getAccountById,
+		getCategoryById,
 		showFeedback
 	} from '$lib/stores';
 	import type { RecurringItem } from '$lib/types';
@@ -19,12 +21,14 @@
 	let amount = $state('');
 	let dayOfMonth = $state('1');
 	let accountId = $state('');
+	let categoryId = $state('');
 
 	const openAddModal = () => {
 		name = '';
 		amount = '';
 		dayOfMonth = '1';
 		accountId = $accounts[0]?.id?.toString() ?? '';
+		categoryId = '';
 		editingItem = null;
 		showAddModal = true;
 	};
@@ -34,6 +38,7 @@
 		amount = item.amount.toString();
 		dayOfMonth = item.dayOfMonth?.toString() ?? '1';
 		accountId = item.accountId.toString();
+		categoryId = item.categoryId?.toString() ?? '';
 		editingItem = item;
 		showAddModal = true;
 	};
@@ -47,6 +52,7 @@
 		const amountNum = parseFloat(amount);
 		const day = parseInt(dayOfMonth, 10);
 		const accId = parseInt(accountId, 10);
+		const catId = categoryId ? parseInt(categoryId, 10) : undefined;
 
 		if (!name.trim()) {
 			showFeedback('Please enter a name', 'error');
@@ -66,7 +72,8 @@
 				name: name.trim(),
 				amount: amountNum,
 				dayOfMonth: day,
-				accountId: accId
+				accountId: accId,
+				categoryId: catId
 			});
 		} else {
 			await createRecurringItem({
@@ -76,6 +83,7 @@
 				frequency: 'monthly',
 				dayOfMonth: day,
 				accountId: accId,
+				categoryId: catId,
 				isActive: true
 			});
 		}
@@ -229,6 +237,18 @@
 				{/each}
 			</select>
 		</div>
+
+		{#if $categories.length > 0}
+			<div>
+				<label class="label" for="outgoing-category">Category (optional)</label>
+				<select id="outgoing-category" class="input" bind:value={categoryId}>
+					<option value="">No category</option>
+					{#each $categories as category}
+						<option value={category.id}>{category.name}</option>
+					{/each}
+				</select>
+			</div>
+		{/if}
 
 		<div class="flex gap-3 pt-2">
 			<button class="button-secondary flex-1" onclick={closeModal}>

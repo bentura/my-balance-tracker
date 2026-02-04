@@ -5,10 +5,12 @@
 	import { Modal } from '$lib/components';
 	import {
 		accounts,
+		categories,
 		updateAccount,
 		deleteAccount,
 		deleteTransaction,
 		getStorage,
+		getCategoryById,
 		showFeedback,
 		refreshAll
 	} from '$lib/stores';
@@ -20,6 +22,32 @@
 	let transactions = $state<Transaction[]>([]);
 	let showEditModal = $state(false);
 	let showDeleteConfirm = $state(false);
+
+	// Category breakdown
+	const categoryBreakdown = $derived(() => {
+		const breakdown: { categoryId: number | null; name: string; color: string; total: number; count: number }[] = [];
+		const catTotals = new Map<number | null, { total: number; count: number }>();
+
+		for (const tx of transactions) {
+			if (tx.type !== 'out') continue;
+			const key = tx.categoryId ?? null;
+			const existing = catTotals.get(key) ?? { total: 0, count: 0 };
+			catTotals.set(key, { total: existing.total + tx.amount, count: existing.count + 1 });
+		}
+
+		for (const [catId, data] of catTotals) {
+			const cat = catId ? getCategoryById(catId) : null;
+			breakdown.push({
+				categoryId: catId,
+				name: cat?.name ?? 'Uncategorized',
+				color: cat?.color ?? '#5b6770',
+				total: data.total,
+				count: data.count
+			});
+		}
+
+		return breakdown.sort((a, b) => b.total - a.total);
+	});
 
 	// Edit form state
 	let editName = $state('');
@@ -144,6 +172,30 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- Category breakdown -->
+			{#if categoryBreakdown().length > 0}
+				<div class="card mt-4">
+					<h2 class="mb-3 font-semibold">Spending by Category</h2>
+					<div class="space-y-2">
+						{#each categoryBreakdown() as cat}
+							<div class="flex items-center gap-3">
+								<div
+									class="h-3 w-3 rounded-full"
+									style="background-color: {cat.color}"
+								></div>
+								<div class="flex-1">
+									<p class="text-sm font-medium">{cat.name}</p>
+								</div>
+								<div class="text-right">
+									<p class="text-sm font-semibold">{formatCurrency(cat.total, account.currency)}</p>
+									<p class="text-xs text-slate">{cat.count} transaction{cat.count !== 1 ? 's' : ''}</p>
+								</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
 
 			<!-- Transactions for this account -->
 			<div class="mt-6">

@@ -15,6 +15,7 @@
 		{ href: '/dashboard', label: 'Accounts', icon: '💰' },
 		{ href: '/recurring/income', label: 'Regular Income', icon: '📈' },
 		{ href: '/recurring/outgoings', label: 'Regular Outgoings', icon: '📉' },
+		{ href: '/categories', label: 'Categories', icon: '🏷️' },
 		{ href: '/transactions', label: 'All Transactions', icon: '📋' },
 		{ href: '/settings', label: 'Settings', icon: '⚙️' },
 		{ href: '/about', label: 'About', icon: 'ℹ️' },

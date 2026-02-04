@@ -3,6 +3,7 @@
 	import { Modal } from '$lib/components';
 	import {
 		accounts,
+		categories,
 		recentTransactions,
 		createTransaction,
 		getProjectedBalance,
@@ -27,6 +28,7 @@
 	let txAmount = $state('');
 	let txType = $state<TransactionType>('out');
 	let txAccountId = $state('');
+	let txCategoryId = $state('');
 	let txDate = $state(new Date().toISOString().slice(0, 10));
 
 	const openAddTransaction = () => {
@@ -35,6 +37,7 @@
 		txAmount = '';
 		txType = 'out';
 		txAccountId = $accounts[0]?.id?.toString() ?? '';
+		txCategoryId = '';
 		txDate = new Date().toISOString().slice(0, 10);
 		showAddTransaction = true;
 	};
@@ -42,6 +45,7 @@
 	const submitTransaction = async () => {
 		const amount = parseFloat(txAmount);
 		const accountId = parseInt(txAccountId, 10);
+		const categoryId = txCategoryId ? parseInt(txCategoryId, 10) : undefined;
 
 		if (!txDescription.trim()) {
 			showFeedback('Please enter a description', 'error');
@@ -61,6 +65,7 @@
 			amount,
 			type: txType,
 			accountId,
+			categoryId,
 			date: txDate
 		});
 
@@ -265,6 +270,18 @@
 				/>
 			</div>
 		</div>
+
+		{#if $categories.length > 0}
+			<div>
+				<label class="label" for="tx-category">Category (optional)</label>
+				<select id="tx-category" class="input" bind:value={txCategoryId}>
+					<option value="">No category</option>
+					{#each $categories as category}
+						<option value={category.id}>{category.name}</option>
+					{/each}
+				</select>
+			</div>
+		{/if}
 
 		<p class="text-xs text-slate">
 			💡 Future dates create upcoming transactions that won't affect your balance until that date.

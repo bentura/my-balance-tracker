@@ -322,16 +322,19 @@ export const importData = async (jsonString: string): Promise<boolean> => {
 export const runDailyProcessing = async (): Promise<void> => {
 	if (!storage) return;
 
-	const today = new Date().toISOString().slice(0, 10);
+	const today = new Date();
+	const todayStr = today.toISOString().slice(0, 10);
 	const $settings = get(settings);
 
 	// Check if already run today
-	if ($settings?.lastDailyRun === today) return;
+	if ($settings?.lastDailyRun === todayStr) return;
 
-	// Apply pending transactions that are due
+	console.log('[MBT] Running daily processing for', todayStr);
+
+	// 1. Apply pending future transactions that are now due
 	const pending = await storage.getPendingTransactions();
 	for (const tx of pending) {
-		if (tx.date <= today) {
+		if (tx.date <= todayStr) {
 			const account = await storage.getAccount(tx.accountId);
 			if (account) {
 				const delta = tx.type === 'in' ? tx.amount : -tx.amount;
@@ -339,13 +342,74 @@ export const runDailyProcessing = async (): Promise<void> => {
 					balance: account.balance + delta
 				});
 				await storage.updateTransaction(tx.id!, { isApplied: true });
+				console.log('[MBT] Applied pending transaction:', tx.description);
 			}
 		}
 	}
 
+	// 2. Process recurring items due today
+	const recurringItems = await storage.getRecurringItems();
+	const todayDayOfMonth = today.getDate();
+	const todayDayOfWeek = today.getDay();
+
+	for (const item of recurringItems) {
+		if (!item.isActive) continue;
+
+		// Check if already applied today
+		if (item.lastApplied === todayStr) continue;
+
+		// Check if due today based on frequency
+		let isDue = false;
+		if (item.frequency === 'daily') {
+			isDue = true;
+		} else if (item.frequency === 'weekly' && item.dayOfWeek === todayDayOfWeek) {
+			isDue = true;
+		} else if (item.frequency === 'monthly' && item.dayOfMonth === todayDayOfMonth) {
+			isDue = true;
+		} else if (item.frequency === 'yearly') {
+			// For yearly, check if it's the right day and month
+			// (simplified: just checks day of month for now)
+			if (item.dayOfMonth === todayDayOfMonth) {
+				// Check if it hasn't been applied this year
+				const lastAppliedYear = item.lastApplied ? new Date(item.lastApplied).getFullYear() : 0;
+				if (lastAppliedYear < today.getFullYear()) {
+					isDue = true;
+				}
+			}
+		}
+
+		if (isDue) {
+			// Create a transaction for this recurring item
+			const tx = await storage.createTransaction({
+				description: item.name,
+				amount: item.amount,
+				type: item.type,
+				accountId: item.accountId,
+				categoryId: item.categoryId,
+				date: todayStr,
+				isApplied: true,
+				recurringId: item.id
+			});
+
+			// Update account balance
+			const account = await storage.getAccount(item.accountId);
+			if (account) {
+				const delta = item.type === 'in' ? item.amount : -item.amount;
+				await storage.updateAccount(item.accountId, {
+					balance: account.balance + delta
+				});
+			}
+
+			// Mark the recurring item as applied today
+			await storage.updateRecurringItem(item.id!, { lastApplied: todayStr });
+			console.log('[MBT] Applied recurring item:', item.name);
+		}
+	}
+
 	// Update last run date
-	await storage.updateSettings({ lastDailyRun: today });
+	await storage.updateSettings({ lastDailyRun: todayStr });
 	await refreshAll();
+	console.log('[MBT] Daily processing complete');
 };
 
 // Get storage adapter (for advanced operations)
