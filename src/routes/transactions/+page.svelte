@@ -4,17 +4,48 @@
 	import {
 		accounts,
 		categories,
+		recurringIncome,
+		recurringOutgoings,
 		getStorage,
 		getAccountById,
 		getCategoryById,
-		deleteTransaction
+		deleteTransaction,
+		showFeedback,
+		refreshAll
 	} from '$lib/stores';
 	import type { Transaction } from '$lib/types';
+
+	// Recurring items section
+	let showRecurring = $state(true);
+
+	const recurringIncomeTotal = $derived(
+		$recurringIncome.filter(i => i.isActive).reduce((sum, i) => sum + i.amount, 0)
+	);
+	const recurringOutgoingsTotal = $derived(
+		$recurringOutgoings.filter(i => i.isActive).reduce((sum, i) => sum + i.amount, 0)
+	);
+
+	const formatCurrencySimple = (amount: number, currency = 'GBP') => {
+		return new Intl.NumberFormat('en-GB', {
+			style: 'currency',
+			currency
+		}).format(amount);
+	};
 
 	let transactions = $state<Transaction[]>([]);
 	let isLoading = $state(true);
 	let showDeleteConfirm = $state(false);
 	let txToDelete = $state<Transaction | null>(null);
+
+	// Edit modal state
+	let showEditModal = $state(false);
+	let editingTx = $state<Transaction | null>(null);
+	let editDescription = $state('');
+	let editAmount = $state('');
+	let editType = $state<'in' | 'out'>('out');
+	let editAccountId = $state('');
+	let editCategoryId = $state('');
+	let editDate = $state('');
 
 	// Filters
 	let filterAccount = $state('');
@@ -22,6 +53,9 @@
 	let filterCategory = $state('');
 	let filterFrom = $state('');
 	let filterTo = $state('');
+
+	// Grouping
+	let groupBy = $state<'date' | 'category'>('date');
 
 	onMount(async () => {
 		await loadTransactions();
@@ -72,6 +106,83 @@
 		loadTransactions();
 	};
 
+	// Edit transaction
+	const openEditModal = (tx: Transaction) => {
+		editingTx = tx;
+		editDescription = tx.description;
+		editAmount = tx.amount.toString();
+		editType = tx.type;
+		editAccountId = tx.accountId.toString();
+		editCategoryId = tx.categoryId?.toString() ?? '';
+		editDate = tx.date;
+		showEditModal = true;
+	};
+
+	const saveEdit = async () => {
+		if (!editingTx?.id) return;
+		const storage = getStorage();
+		if (!storage) return;
+
+		const amount = parseFloat(editAmount);
+		const accountId = parseInt(editAccountId, 10);
+		const categoryId = editCategoryId ? parseInt(editCategoryId, 10) : undefined;
+
+		if (!editDescription.trim()) {
+			showFeedback('Please enter a description', 'error');
+			return;
+		}
+		if (isNaN(amount) || amount <= 0) {
+			showFeedback('Please enter a valid amount', 'error');
+			return;
+		}
+		if (isNaN(accountId)) {
+			showFeedback('Please select an account', 'error');
+			return;
+		}
+
+		const oldTx = editingTx;
+
+		// If the transaction was applied and amount/type/account changed, adjust balances
+		if (oldTx.isApplied) {
+			// Reverse old effect on old account
+			const oldAccount = await storage.getAccount(oldTx.accountId);
+			if (oldAccount) {
+				const oldDelta = oldTx.type === 'in' ? -oldTx.amount : oldTx.amount;
+				await storage.updateAccount(oldTx.accountId, {
+					balance: oldAccount.balance + oldDelta
+				});
+			}
+
+			// Apply new effect on new account
+			const newAccount = await storage.getAccount(accountId);
+			if (newAccount) {
+				// If same account, refetch since we just updated it
+				const currentBalance = accountId === oldTx.accountId
+					? (await storage.getAccount(accountId))!.balance
+					: newAccount.balance;
+				const newDelta = editType === 'in' ? amount : -amount;
+				await storage.updateAccount(accountId, {
+					balance: currentBalance + newDelta
+				});
+			}
+		}
+
+		await storage.updateTransaction(oldTx.id!, {
+			description: editDescription.trim(),
+			amount,
+			type: editType,
+			accountId,
+			categoryId,
+			date: editDate
+		});
+
+		await refreshAll();
+		await loadTransactions();
+		showEditModal = false;
+		editingTx = null;
+		showFeedback('Transaction updated');
+	};
+
 	const confirmRemoveTx = (tx: Transaction) => {
 		txToDelete = tx;
 		showDeleteConfirm = true;
@@ -103,15 +214,15 @@
 	};
 
 	// Group transactions by date
-	const groupedTransactions = $derived(() => {
-		const groups: { date: string; transactions: Transaction[] }[] = [];
+	const groupedByDate = $derived(() => {
+		const groups: { label: string; sortKey: string; transactions: Transaction[] }[] = [];
 		let currentDate = '';
 		let currentGroup: Transaction[] = [];
 
 		for (const tx of transactions) {
 			if (tx.date !== currentDate) {
 				if (currentGroup.length > 0) {
-					groups.push({ date: currentDate, transactions: currentGroup });
+					groups.push({ label: formatDate(currentDate), sortKey: currentDate, transactions: currentGroup });
 				}
 				currentDate = tx.date;
 				currentGroup = [tx];
@@ -121,10 +232,37 @@
 		}
 
 		if (currentGroup.length > 0) {
-			groups.push({ date: currentDate, transactions: currentGroup });
+			groups.push({ label: formatDate(currentDate), sortKey: currentDate, transactions: currentGroup });
 		}
 
 		return groups;
+	});
+
+	// Group transactions by category
+	const groupedByCategory = $derived(() => {
+		const catMap = new Map<string, { label: string; color: string; transactions: Transaction[] }>();
+
+		for (const tx of transactions) {
+			const catId = tx.categoryId?.toString() ?? 'none';
+			if (!catMap.has(catId)) {
+				const cat = tx.categoryId ? getCategoryById(tx.categoryId) : null;
+				catMap.set(catId, {
+					label: cat?.name ?? 'Uncategorized',
+					color: cat?.color ?? '#5b6770',
+					transactions: []
+				});
+			}
+			catMap.get(catId)!.transactions.push(tx);
+		}
+
+		// Sort: named categories first (alphabetically), then Uncategorized last
+		return Array.from(catMap.entries())
+			.sort(([aKey, a], [bKey, b]) => {
+				if (aKey === 'none') return 1;
+				if (bKey === 'none') return -1;
+				return a.label.localeCompare(b.label);
+			})
+			.map(([_, group]) => group);
 	});
 </script>
 
@@ -144,7 +282,7 @@
 					<select id="filter-account" class="input" bind:value={filterAccount}>
 						<option value="">All accounts</option>
 						{#each $accounts as account}
-							<option value={account.id}>{account.name}</option>
+							<option value={account.id?.toString()}>{account.name}</option>
 						{/each}
 					</select>
 				</div>
@@ -164,7 +302,7 @@
 						<option value="">All categories</option>
 						<option value="none">Uncategorized</option>
 						{#each $categories as category}
-							<option value={category.id}>{category.name}</option>
+							<option value={category.id?.toString()}>{category.name}</option>
 						{/each}
 					</select>
 				</div>
@@ -178,6 +316,14 @@
 					<label class="label" for="filter-to">To</label>
 					<input id="filter-to" class="input" type="date" bind:value={filterTo} />
 				</div>
+
+				<div>
+					<label class="label" for="group-by">Group by</label>
+					<select id="group-by" class="input" bind:value={groupBy}>
+						<option value="date">Date</option>
+						<option value="category">Category</option>
+					</select>
+				</div>
 			</div>
 
 			<div class="mt-4 flex gap-2">
@@ -189,6 +335,103 @@
 				</button>
 			</div>
 		</div>
+
+		<!-- Recurring Income & Outgoings -->
+		{#if $recurringIncome.length > 0 || $recurringOutgoings.length > 0}
+			<div class="card mb-6">
+				<button
+					class="flex w-full items-center justify-between text-left"
+					onclick={() => showRecurring = !showRecurring}
+				>
+					<h2 class="font-serif text-lg font-semibold">Regular Income & Outgoings</h2>
+					<span class="text-slate transition-transform" class:rotate-180={showRecurring}>▼</span>
+				</button>
+
+				{#if showRecurring}
+					<div class="mt-4 space-y-4">
+						<!-- Income -->
+						{#if $recurringIncome.length > 0}
+							<div>
+								<div class="mb-2 flex items-center justify-between">
+									<h3 class="text-sm font-semibold text-green-600">Income</h3>
+									<span class="text-sm font-semibold text-green-600">
+										+{formatCurrencySimple(recurringIncomeTotal)}/mo
+									</span>
+								</div>
+								<div class="space-y-1">
+									{#each $recurringIncome as item}
+										{@const account = getAccountById(item.accountId)}
+										{@const category = item.categoryId ? getCategoryById(item.categoryId) : null}
+										<div class="flex items-center gap-3 rounded-lg bg-green-50 px-3 py-2" class:opacity-50={!item.isActive}>
+											<div class="flex-1">
+												<p class="text-sm font-medium">
+													{item.name}
+													{#if !item.isActive}
+														<span class="ml-1 text-xs text-amber-600">(paused)</span>
+													{/if}
+												</p>
+												<p class="text-xs text-slate">
+													Day {item.dayOfMonth} · {account?.name ?? 'Unknown'}
+													{#if category}
+														<span class="ml-1 rounded bg-slate/10 px-1 py-0.5" style="color: {category.color ?? '#5b6770'}">{category.name}</span>
+													{/if}
+												</p>
+											</div>
+											<p class="text-sm font-semibold text-green-600">+{formatCurrencySimple(item.amount)}</p>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+						<!-- Outgoings -->
+						{#if $recurringOutgoings.length > 0}
+							<div>
+								<div class="mb-2 flex items-center justify-between">
+									<h3 class="text-sm font-semibold text-red-600">Outgoings</h3>
+									<span class="text-sm font-semibold text-red-600">
+										-{formatCurrencySimple(recurringOutgoingsTotal)}/mo
+									</span>
+								</div>
+								<div class="space-y-1">
+									{#each $recurringOutgoings as item}
+										{@const account = getAccountById(item.accountId)}
+										{@const category = item.categoryId ? getCategoryById(item.categoryId) : null}
+										<div class="flex items-center gap-3 rounded-lg bg-red-50 px-3 py-2" class:opacity-50={!item.isActive}>
+											<div class="flex-1">
+												<p class="text-sm font-medium">
+													{item.name}
+													{#if !item.isActive}
+														<span class="ml-1 text-xs text-amber-600">(paused)</span>
+													{/if}
+												</p>
+												<p class="text-xs text-slate">
+													Day {item.dayOfMonth} · {account?.name ?? 'Unknown'}
+													{#if category}
+														<span class="ml-1 rounded bg-slate/10 px-1 py-0.5" style="color: {category.color ?? '#5b6770'}">{category.name}</span>
+													{/if}
+												</p>
+											</div>
+											<p class="text-sm font-semibold text-red-600">-{formatCurrencySimple(item.amount)}</p>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+						<!-- Net summary -->
+						<div class="border-t pt-3">
+							<div class="flex items-center justify-between">
+								<p class="text-sm font-semibold">Monthly Net</p>
+								<p class="text-sm font-semibold" class:text-green-600={recurringIncomeTotal - recurringOutgoingsTotal >= 0} class:text-red-600={recurringIncomeTotal - recurringOutgoingsTotal < 0}>
+									{recurringIncomeTotal - recurringOutgoingsTotal >= 0 ? '+' : ''}{formatCurrencySimple(recurringIncomeTotal - recurringOutgoingsTotal)}/mo
+								</p>
+							</div>
+						</div>
+					</div>
+				{/if}
+			</div>
+		{/if}
 
 		<!-- Transaction list -->
 		{#if isLoading}
@@ -202,75 +445,260 @@
 		{:else}
 			<p class="mb-4 text-sm text-slate">{transactions.length} transactions</p>
 
-			{#each groupedTransactions() as group}
-				<div class="mb-6">
-					<h3 class="mb-2 text-sm font-semibold text-slate">{formatDate(group.date)}</h3>
-					<div class="space-y-2">
-						{#each group.transactions as tx}
-							{@const account = getAccountById(tx.accountId)}
-							<div
-								class="card flex items-center gap-3 p-4"
-								class:opacity-60={!tx.isApplied}
-							>
-								<!-- Icon -->
+			{#if groupBy === 'date'}
+				{#each groupedByDate() as group}
+					<div class="mb-6">
+						<h3 class="mb-2 text-sm font-semibold text-slate">{group.label}</h3>
+						<div class="space-y-2">
+							{#each group.transactions as tx}
+								{@const account = getAccountById(tx.accountId)}
+								{@const category = tx.categoryId ? getCategoryById(tx.categoryId) : null}
 								<div
-									class="flex h-10 w-10 items-center justify-center rounded-full"
-									class:bg-green-100={tx.type === 'in'}
-									class:text-green-600={tx.type === 'in'}
-									class:bg-red-100={tx.type === 'out'}
-									class:text-red-600={tx.type === 'out'}
+									class="card flex items-center gap-3 p-4"
+									class:opacity-60={!tx.isApplied}
 								>
-									{#if tx.type === 'in'}
-										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-										</svg>
-									{:else}
-										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-										</svg>
-									{/if}
-								</div>
-
-								<!-- Details -->
-								<div class="flex-1">
-									<p class="font-medium">
-										{tx.description}
-										{#if !tx.isApplied}
-											<span class="ml-1 text-xs text-amber-600">(upcoming)</span>
-										{/if}
-									</p>
-									<p class="text-sm text-slate">{account?.name ?? 'Unknown'}</p>
-								</div>
-
-								<!-- Amount -->
-								<div class="text-right">
-									<p
-										class="font-semibold"
+									<!-- Icon -->
+									<div
+										class="flex h-10 w-10 items-center justify-center rounded-full"
+										class:bg-green-100={tx.type === 'in'}
 										class:text-green-600={tx.type === 'in'}
+										class:bg-red-100={tx.type === 'out'}
 										class:text-red-600={tx.type === 'out'}
 									>
-										{tx.type === 'in' ? '+' : '-'}{formatCurrency(tx.amount, tx.accountId)}
-									</p>
-								</div>
+										{#if tx.type === 'in'}
+											<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+											</svg>
+										{:else}
+											<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+											</svg>
+										{/if}
+									</div>
 
-								<!-- Delete -->
-								<button
-									class="ml-2 text-slate hover:text-red-600"
-									onclick={() => confirmRemoveTx(tx)}
-									aria-label="Delete"
-								>
-									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-									</svg>
-								</button>
-							</div>
-						{/each}
+									<!-- Details -->
+									<div class="flex-1">
+										<p class="font-medium">
+											{tx.description}
+											{#if !tx.isApplied}
+												<span class="ml-1 text-xs text-amber-600">(upcoming)</span>
+											{/if}
+										</p>
+										<p class="text-sm text-slate">
+											{account?.name ?? 'Unknown'}
+											{#if category}
+												<span class="ml-1 rounded bg-slate/10 px-1.5 py-0.5 text-xs" style="color: {category.color ?? '#5b6770'}">{category.name}</span>
+											{/if}
+										</p>
+									</div>
+
+									<!-- Amount -->
+									<div class="text-right">
+										<p
+											class="font-semibold"
+											class:text-green-600={tx.type === 'in'}
+											class:text-red-600={tx.type === 'out'}
+										>
+											{tx.type === 'in' ? '+' : '-'}{formatCurrency(tx.amount, tx.accountId)}
+										</p>
+									</div>
+
+									<!-- Edit -->
+									<button
+										class="ml-1 text-slate hover:text-moss"
+										onclick={() => openEditModal(tx)}
+										aria-label="Edit"
+									>
+										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+										</svg>
+									</button>
+
+									<!-- Delete -->
+									<button
+										class="text-slate hover:text-red-600"
+										onclick={() => confirmRemoveTx(tx)}
+										aria-label="Delete"
+									>
+										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+										</svg>
+									</button>
+								</div>
+							{/each}
+						</div>
 					</div>
-				</div>
-			{/each}
+				{/each}
+			{:else}
+				<!-- Grouped by category -->
+				{#each groupedByCategory() as group}
+					<div class="mb-6">
+						<h3 class="mb-2 flex items-center gap-2 text-sm font-semibold text-slate">
+							<span class="inline-block h-3 w-3 rounded-full" style="background-color: {group.color}"></span>
+							{group.label}
+							<span class="font-normal">({group.transactions.length})</span>
+						</h3>
+						<div class="space-y-2">
+							{#each group.transactions as tx}
+								{@const account = getAccountById(tx.accountId)}
+								<div
+									class="card flex items-center gap-3 p-4"
+									class:opacity-60={!tx.isApplied}
+								>
+									<!-- Icon -->
+									<div
+										class="flex h-10 w-10 items-center justify-center rounded-full"
+										class:bg-green-100={tx.type === 'in'}
+										class:text-green-600={tx.type === 'in'}
+										class:bg-red-100={tx.type === 'out'}
+										class:text-red-600={tx.type === 'out'}
+									>
+										{#if tx.type === 'in'}
+											<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+											</svg>
+										{:else}
+											<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+											</svg>
+										{/if}
+									</div>
+
+									<!-- Details -->
+									<div class="flex-1">
+										<p class="font-medium">
+											{tx.description}
+											{#if !tx.isApplied}
+												<span class="ml-1 text-xs text-amber-600">(upcoming)</span>
+											{/if}
+										</p>
+										<p class="text-sm text-slate">
+											{formatDate(tx.date)} · {account?.name ?? 'Unknown'}
+										</p>
+									</div>
+
+									<!-- Amount -->
+									<div class="text-right">
+										<p
+											class="font-semibold"
+											class:text-green-600={tx.type === 'in'}
+											class:text-red-600={tx.type === 'out'}
+										>
+											{tx.type === 'in' ? '+' : '-'}{formatCurrency(tx.amount, tx.accountId)}
+										</p>
+									</div>
+
+									<!-- Edit -->
+									<button
+										class="ml-1 text-slate hover:text-moss"
+										onclick={() => openEditModal(tx)}
+										aria-label="Edit"
+									>
+										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+										</svg>
+									</button>
+
+									<!-- Delete -->
+									<button
+										class="text-slate hover:text-red-600"
+										onclick={() => confirmRemoveTx(tx)}
+										aria-label="Delete"
+									>
+										<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+										</svg>
+									</button>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/each}
+			{/if}
 		{/if}
 	</div>
 </main>
+
+<!-- Edit Transaction Modal -->
+<Modal
+	isOpen={showEditModal}
+	title="Edit Transaction"
+	onClose={() => { showEditModal = false; editingTx = null; }}
+>
+	<div class="space-y-4">
+		<div>
+			<label class="label" for="edit-tx-desc">Description</label>
+			<input
+				id="edit-tx-desc"
+				class="input"
+				bind:value={editDescription}
+			/>
+		</div>
+
+		<div class="grid grid-cols-2 gap-4">
+			<div>
+				<label class="label" for="edit-tx-amount">Amount</label>
+				<input
+					id="edit-tx-amount"
+					class="input"
+					type="number"
+					step="0.01"
+					bind:value={editAmount}
+				/>
+			</div>
+
+			<div>
+				<label class="label" for="edit-tx-type">Type</label>
+				<select id="edit-tx-type" class="input" bind:value={editType}>
+					<option value="out">Outgoing (expense)</option>
+					<option value="in">Incoming (income)</option>
+				</select>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-2 gap-4">
+			<div>
+				<label class="label" for="edit-tx-account">Account</label>
+				<select id="edit-tx-account" class="input" bind:value={editAccountId}>
+					{#each $accounts as account}
+						<option value={account.id?.toString()}>{account.name}</option>
+					{/each}
+				</select>
+			</div>
+
+			<div>
+				<label class="label" for="edit-tx-date">Date</label>
+				<input
+					id="edit-tx-date"
+					class="input"
+					type="date"
+					bind:value={editDate}
+				/>
+			</div>
+		</div>
+
+		{#if $categories.length > 0}
+			<div>
+				<label class="label" for="edit-tx-category">Category</label>
+				<select id="edit-tx-category" class="input" bind:value={editCategoryId}>
+					<option value="">No category</option>
+					{#each $categories as category}
+						<option value={category.id?.toString()}>{category.name}</option>
+					{/each}
+				</select>
+			</div>
+		{/if}
+
+		<div class="flex gap-3 pt-2">
+			<button class="button-secondary flex-1" onclick={() => { showEditModal = false; editingTx = null; }}>
+				Cancel
+			</button>
+			<button class="button flex-1" onclick={saveEdit}>
+				Save Changes
+			</button>
+		</div>
+	</div>
+</Modal>
 
 <!-- Delete Confirmation Modal -->
 <Modal

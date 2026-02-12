@@ -140,6 +140,11 @@
 			year: 'numeric'
 		});
 	};
+
+	// Split transactions into upcoming and past
+	const today = new Date().toISOString().slice(0, 10);
+	const upcomingTransactions = $derived(transactions.filter(tx => tx.date > today));
+	const pastTransactions = $derived(transactions.filter(tx => tx.date <= today));
 </script>
 
 <svelte:head>
@@ -217,58 +222,123 @@
 						<p class="text-slate">No transactions for this account.</p>
 					</div>
 				{:else}
-					<div class="space-y-2">
-						{#each transactions as tx}
-							<div class="card flex items-center gap-3 p-4">
-								<!-- Icon -->
-								<div
-									class="flex h-10 w-10 items-center justify-center rounded-full"
-									class:bg-green-100={tx.type === 'in'}
-									class:text-green-600={tx.type === 'in'}
-									class:bg-red-100={tx.type === 'out'}
-									class:text-red-600={tx.type === 'out'}
-								>
-									{#if tx.type === 'in'}
-										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-										</svg>
-									{:else}
-										<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-										</svg>
-									{/if}
-								</div>
+					<!-- Upcoming Transactions -->
+					{#if upcomingTransactions.length > 0}
+						<div class="mb-6">
+							<h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate">Upcoming</h3>
+							<div class="space-y-2">
+								{#each upcomingTransactions as tx}
+									<div class="card flex items-center gap-3 p-4">
+										<!-- Icon -->
+										<div
+											class="flex h-10 w-10 items-center justify-center rounded-full"
+											class:bg-green-100={tx.type === 'in'}
+											class:text-green-600={tx.type === 'in'}
+											class:bg-red-100={tx.type === 'out'}
+											class:text-red-600={tx.type === 'out'}
+										>
+											{#if tx.type === 'in'}
+												<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+												</svg>
+											{:else}
+												<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+												</svg>
+											{/if}
+										</div>
 
-								<!-- Details -->
-								<div class="flex-1">
-									<p class="font-medium">{tx.description}</p>
-									<p class="text-sm text-slate">{formatDate(tx.date)}</p>
-								</div>
+										<!-- Details -->
+										<div class="flex-1">
+											<p class="font-medium">{tx.description}</p>
+											<p class="text-sm text-slate">{formatDate(tx.date)}</p>
+										</div>
 
-								<!-- Amount -->
-								<div class="text-right">
-									<p
-										class="font-semibold"
-										class:text-green-600={tx.type === 'in'}
-										class:text-red-600={tx.type === 'out'}
-									>
-										{tx.type === 'in' ? '+' : '-'}{formatCurrency(tx.amount, account.currency)}
-									</p>
-								</div>
+										<!-- Amount -->
+										<div class="text-right">
+											<p
+												class="font-semibold"
+												class:text-green-600={tx.type === 'in'}
+												class:text-red-600={tx.type === 'out'}
+											>
+												{tx.type === 'in' ? '+' : '-'}{formatCurrency(tx.amount, account.currency)}
+											</p>
+										</div>
 
-								<!-- Delete button -->
-								<button
-									class="ml-2 text-slate hover:text-red-600"
-									onclick={() => confirmRemoveTx(tx)}
-									aria-label="Delete transaction"
-								>
-									<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-									</svg>
-								</button>
+										<!-- Delete button -->
+										<button
+											class="ml-2 text-slate hover:text-red-600"
+											onclick={() => confirmRemoveTx(tx)}
+											aria-label="Delete transaction"
+										>
+											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+											</svg>
+										</button>
+									</div>
+								{/each}
 							</div>
-						{/each}
-					</div>
+						</div>
+					{/if}
+
+					<!-- Past Transactions -->
+					{#if pastTransactions.length > 0}
+						<div>
+							<h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate">History</h3>
+							<div class="space-y-2">
+								{#each pastTransactions as tx}
+									<div class="card flex items-center gap-3 p-4">
+										<!-- Icon -->
+										<div
+											class="flex h-10 w-10 items-center justify-center rounded-full"
+											class:bg-green-100={tx.type === 'in'}
+											class:text-green-600={tx.type === 'in'}
+											class:bg-red-100={tx.type === 'out'}
+											class:text-red-600={tx.type === 'out'}
+										>
+											{#if tx.type === 'in'}
+												<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+												</svg>
+											{:else}
+												<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+												</svg>
+											{/if}
+										</div>
+
+										<!-- Details -->
+										<div class="flex-1">
+											<p class="font-medium">{tx.description}</p>
+											<p class="text-sm text-slate">{formatDate(tx.date)}</p>
+										</div>
+
+										<!-- Amount -->
+										<div class="text-right">
+											<p
+												class="font-semibold"
+												class:text-green-600={tx.type === 'in'}
+												class:text-red-600={tx.type === 'out'}
+											>
+												{tx.type === 'in' ? '+' : '-'}{formatCurrency(tx.amount, account.currency)}
+											</p>
+										</div>
+
+										<!-- Delete button -->
+										<button
+											class="ml-2 text-slate hover:text-red-600"
+											onclick={() => confirmRemoveTx(tx)}
+											aria-label="Delete transaction"
+										>
+											<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+											</svg>
+										</button>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/if}
 				{/if}
 			</div>
 

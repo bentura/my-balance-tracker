@@ -14,7 +14,7 @@
 </script>
 
 <svelte:head>
-	<title>MyBalanceTracker - Simple Personal Finance</title>
+	<title>My Balance Tracker - Simple Personal Finance</title>
 </svelte:head>
 
 <main class="flex min-h-screen flex-col items-center justify-center bg-oat px-6 py-12">

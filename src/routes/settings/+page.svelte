@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { settings, updateSettings, exportData, importData, showFeedback } from '$lib/stores';
 
-	let projectionDays = $state('30');
 	let defaultCurrency = $state('GBP');
 
 	// Sync form with settings
 	$effect(() => {
 		if ($settings) {
-			projectionDays = $settings.projectionDays.toString();
 			defaultCurrency = $settings.defaultCurrency;
 		}
 	});
@@ -19,14 +17,7 @@
 	];
 
 	const saveSettings = async () => {
-		const days = parseInt(projectionDays, 10);
-		if (isNaN(days) || days < 1 || days > 365) {
-			showFeedback('Projection days must be between 1 and 365', 'error');
-			return;
-		}
-
 		await updateSettings({
-			projectionDays: days,
 			defaultCurrency
 		});
 		showFeedback('Settings saved');
@@ -87,19 +78,6 @@
 						{/each}
 					</select>
 					<p class="mt-1 text-xs text-slate">Used for new accounts</p>
-				</div>
-
-				<div>
-					<label class="label" for="projection-days">Projection Days</label>
-					<input
-						id="projection-days"
-						class="input"
-						type="number"
-						min="1"
-						max="365"
-						bind:value={projectionDays}
-					/>
-					<p class="mt-1 text-xs text-slate">How far ahead to calculate projected balance (1-365 days)</p>
 				</div>
 
 				<button class="button w-full" onclick={saveSettings}>

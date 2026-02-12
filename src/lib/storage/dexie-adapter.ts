@@ -224,8 +224,7 @@ export class DexieAdapter implements StorageAdapter {
 
 	async getPendingTransactions(): Promise<Transaction[]> {
 		return this.db.transactions
-			.where('isApplied')
-			.equals(0) // Dexie stores booleans as 0/1
+			.filter(t => !t.isApplied)
 			.toArray();
 	}
 

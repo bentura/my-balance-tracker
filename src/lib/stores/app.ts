@@ -36,12 +36,12 @@ export const hasCompletedOnboarding = derived(
 
 export const recurringIncome = derived(
 	recurringItems,
-	$items => $items.filter(item => item.type === 'in' && item.isActive)
+	$items => $items.filter(item => item.type === 'in')
 );
 
 export const recurringOutgoings = derived(
 	recurringItems,
-	$items => $items.filter(item => item.type === 'out' && item.isActive)
+	$items => $items.filter(item => item.type === 'out')
 );
 
 // Get account by ID
@@ -59,11 +59,9 @@ export const getProjectedBalance = (accountId: number): number => {
 	const account = getAccountById(accountId);
 	if (!account) return 0;
 
-	const $settings = get(settings);
-	const projectionDays = $settings?.projectionDays ?? 30;
 	const today = new Date();
-	const endDate = new Date(today);
-	endDate.setDate(endDate.getDate() + projectionDays);
+	// Project to end of current month
+	const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
 	const $recurringItems = get(recurringItems).filter(
 		item => item.accountId === accountId && item.isActive

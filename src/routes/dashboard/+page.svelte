@@ -302,7 +302,7 @@
 				<label class="label" for="tx-account">Account</label>
 				<select id="tx-account" class="input" bind:value={txAccountId}>
 					{#each $accounts as account}
-						<option value={account.id}>{account.name}</option>
+						<option value={account.id?.toString()}>{account.name}</option>
 					{/each}
 				</select>
 			</div>
@@ -324,7 +324,7 @@
 				<select id="tx-category" class="input" bind:value={txCategoryId}>
 					<option value="">No category</option>
 					{#each $categories as category}
-						<option value={category.id}>{category.name}</option>
+						<option value={category.id?.toString()}>{category.name}</option>
 					{/each}
 				</select>
 			</div>

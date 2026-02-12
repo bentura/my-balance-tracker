@@ -160,6 +160,12 @@
 							<p class="font-medium">{item.name}</p>
 							<p class="text-sm text-slate">
 								Day {item.dayOfMonth} · {getAccountById(item.accountId)?.name ?? 'Unknown'}
+								{#if item.categoryId}
+									{@const category = getCategoryById(item.categoryId)}
+									{#if category}
+										<span class="ml-1 rounded bg-slate/10 px-1.5 py-0.5 text-xs" style="color: {category.color ?? '#5b6770'}">{category.name}</span>
+									{/if}
+								{/if}
 							</p>
 						</div>
 
@@ -243,7 +249,7 @@
 			<label class="label" for="income-account">To Account</label>
 			<select id="income-account" class="input" bind:value={accountId}>
 				{#each $accounts as account}
-					<option value={account.id}>{account.name}</option>
+					<option value={account.id?.toString()}>{account.name}</option>
 				{/each}
 			</select>
 		</div>
@@ -254,7 +260,7 @@
 				<select id="income-category" class="input" bind:value={categoryId}>
 					<option value="">No category</option>
 					{#each $categories as category}
-						<option value={category.id}>{category.name}</option>
+						<option value={category.id?.toString()}>{category.name}</option>
 					{/each}
 				</select>
 			</div>
