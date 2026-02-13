@@ -12,13 +12,14 @@
 		getCategoryById,
 		hasCompletedOnboarding,
 		isInitialized,
-		showFeedback
+		showFeedback,
+		isPremium
 	} from '$lib/stores';
 	import type { TransactionType } from '$lib/types';
 
-	// Redirect if not onboarded
+	// Redirect if not onboarded (but not for premium users - they have server data)
 	$effect(() => {
-		if ($isInitialized && !$hasCompletedOnboarding) {
+		if ($isInitialized && !$hasCompletedOnboarding && !$isPremium) {
 			goto('/');
 		}
 	});

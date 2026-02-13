@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { login, register, isLoggedIn } from '$lib/stores';
+	import { login, register, isLoggedIn, isPremium, switchToApiStorage, initStore } from '$lib/stores';
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 
 	let mode = $state<'login' | 'register'>('login');
 	let email = $state('');
@@ -45,6 +46,10 @@
 		loading = false;
 
 		if (result.success) {
+			// If user is premium, switch to API storage before navigating
+			if (get(isPremium)) {
+				await switchToApiStorage();
+			}
 			goto('/dashboard');
 		} else {
 			error = result.error || 'Something went wrong';
