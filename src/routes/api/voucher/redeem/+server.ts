@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getUserFromRequest, updateUserSubscription } from '$lib/server/auth';
 import { sql } from '$lib/server/db';
+import { stripe } from '$lib/server/stripe';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const user = await getUserFromRequest(cookies);
@@ -68,8 +69,23 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		WHERE id = ${voucher.id}
 	`;
 
+	// Create Stripe customer if not exists (for future paid conversion)
+	let stripeCustomerId = user.stripe_customer_id;
+	if (!stripeCustomerId) {
+		const customer = await stripe.customers.create({
+			email: user.email,
+			metadata: { 
+				userId: user.id.toString(),
+				source: 'voucher',
+				voucherCode: cleanCode
+			}
+		});
+		stripeCustomerId = customer.id;
+	}
+
 	// Activate user's subscription
 	await updateUserSubscription(user.id, {
+		stripe_customer_id: stripeCustomerId,
 		subscription_status: 'active'
 	});
 
