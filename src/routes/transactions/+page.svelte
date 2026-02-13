@@ -31,14 +31,22 @@
 
 	// Group recurring items by account
 	const recurringByAccount = $derived(() => {
-		const groups: Map<number, { account: typeof $accounts[0], income: typeof $recurringIncome, outgoings: typeof $recurringOutgoings, incomeTotal: number, outgoingsTotal: number }> = new Map();
+		type CategoryTotal = { name: string; color: string; amount: number };
+		const groups: Map<number, { 
+			account: typeof $accounts[0], 
+			income: typeof $recurringIncome, 
+			outgoings: typeof $recurringOutgoings, 
+			incomeTotal: number, 
+			outgoingsTotal: number,
+			categoryBreakdown: CategoryTotal[]
+		}> = new Map();
 		
 		// Process income
 		for (const item of $recurringIncome) {
 			if (!groups.has(item.accountId)) {
 				const account = getAccountById(item.accountId);
 				if (account) {
-					groups.set(item.accountId, { account, income: [], outgoings: [], incomeTotal: 0, outgoingsTotal: 0 });
+					groups.set(item.accountId, { account, income: [], outgoings: [], incomeTotal: 0, outgoingsTotal: 0, categoryBreakdown: [] });
 				}
 			}
 			const group = groups.get(item.accountId);
@@ -53,7 +61,7 @@
 			if (!groups.has(item.accountId)) {
 				const account = getAccountById(item.accountId);
 				if (account) {
-					groups.set(item.accountId, { account, income: [], outgoings: [], incomeTotal: 0, outgoingsTotal: 0 });
+					groups.set(item.accountId, { account, income: [], outgoings: [], incomeTotal: 0, outgoingsTotal: 0, categoryBreakdown: [] });
 				}
 			}
 			const group = groups.get(item.accountId);
@@ -61,6 +69,40 @@
 				group.outgoings.push(item);
 				if (item.isActive) group.outgoingsTotal += item.amount;
 			}
+		}
+		
+		// Calculate category breakdown for each account
+		for (const group of groups.values()) {
+			const totals = new Map<string, CategoryTotal>();
+			
+			// Add income
+			const incomeTotal = group.income.filter(i => i.isActive).reduce((sum, i) => sum + i.amount, 0);
+			if (incomeTotal > 0) {
+				totals.set('_income', { name: 'Income', color: '#16a34a', amount: incomeTotal });
+			}
+			
+			// Group outgoings by category
+			for (const item of group.outgoings) {
+				if (!item.isActive) continue;
+				const catKey = item.categoryId?.toString() ?? '_uncategorized';
+				const cat = item.categoryId ? getCategoryById(item.categoryId) : null;
+				const existing = totals.get(catKey);
+				if (existing) {
+					existing.amount -= item.amount;
+				} else {
+					totals.set(catKey, {
+						name: cat?.name ?? 'Uncategorized',
+						color: cat?.color ?? '#5b6770',
+						amount: -item.amount
+					});
+				}
+			}
+			
+			group.categoryBreakdown = Array.from(totals.values()).sort((a, b) => {
+				if (a.name === 'Income') return -1;
+				if (b.name === 'Income') return 1;
+				return a.name.localeCompare(b.name);
+			});
 		}
 		
 		return Array.from(groups.values()).sort((a, b) => a.account.name.localeCompare(b.account.name));
@@ -518,12 +560,19 @@
 											</div>
 										{/each}
 
-										<!-- Account total -->
-										<div class="mt-2 flex items-center justify-between border-t border-slate/10 pt-2">
-											<p class="text-sm font-medium text-slate">Account Net</p>
-											<p class="text-sm font-semibold" class:text-green-600={netAmount >= 0} class:text-red-600={netAmount < 0}>
-												{netAmount >= 0 ? '+' : ''}{formatCurrencySimple(netAmount)}/mo
-											</p>
+										<!-- Category breakdown -->
+										<div class="mt-2 space-y-1 border-t border-slate/10 pt-2">
+											{#each group.categoryBreakdown as cat}
+												<div class="flex items-center justify-between text-sm">
+													<div class="flex items-center gap-2">
+														<span class="h-2 w-2 rounded-full" style="background-color: {cat.color}"></span>
+														<span class="text-slate">{cat.name}</span>
+													</div>
+													<span class="font-medium" class:text-green-600={cat.amount > 0} class:text-red-600={cat.amount < 0}>
+														{cat.amount >= 0 ? '+' : ''}{formatCurrencySimple(cat.amount)}/mo
+													</span>
+												</div>
+											{/each}
 										</div>
 									</div>
 								{/if}
