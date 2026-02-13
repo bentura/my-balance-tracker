@@ -573,6 +573,13 @@
 													</span>
 												</div>
 											{/each}
+											<!-- Account net -->
+											<div class="flex items-center justify-between border-t border-slate/10 pt-1 text-sm">
+												<span class="font-medium">Net</span>
+												<span class="font-semibold" class:text-green-600={netAmount >= 0} class:text-red-600={netAmount < 0}>
+													{netAmount >= 0 ? '+' : ''}{formatCurrencySimple(netAmount)}/mo
+												</span>
+											</div>
 										</div>
 									</div>
 								{/if}
