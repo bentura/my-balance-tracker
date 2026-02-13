@@ -1,9 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { stripe } from '$lib/server/stripe';
-import { STRIPE_WEBHOOK_SECRET } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { updateUserSubscription } from '$lib/server/auth';
 import { sql } from '$lib/server/db';
+
+const STRIPE_WEBHOOK_SECRET = env.STRIPE_WEBHOOK_SECRET || '';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.text();

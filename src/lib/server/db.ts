@@ -1,7 +1,7 @@
 import postgres from 'postgres';
-import { DATABASE_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
-export const sql = postgres(DATABASE_URL);
+export const sql = postgres(env.DATABASE_URL || 'postgresql://mbt:mbt_secret_2026@db:5432/mbt');
 
 // Initialize database schema
 export async function initDb() {

@@ -1,6 +1,9 @@
 import Stripe from 'stripe';
-import { STRIPE_SECRET_KEY } from '$env/static/private';
-import { PUBLIC_APP_URL } from '$env/static/public';
+import { env } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
+
+const STRIPE_SECRET_KEY = env.STRIPE_SECRET_KEY || '';
+const PUBLIC_APP_URL = publicEnv.PUBLIC_APP_URL || 'https://mybalancetracker.co.uk';
 
 export const stripe = new Stripe(STRIPE_SECRET_KEY, {
 	apiVersion: '2025-01-27.acacia'

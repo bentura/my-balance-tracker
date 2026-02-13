@@ -1,7 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { sql } from './db';
-import { JWT_SECRET } from '$env/static/private';
+import { env } from '$env/dynamic/private';
+
+const JWT_SECRET = env.JWT_SECRET || 'dev-secret-change-me';
 
 const SALT_ROUNDS = 12;
 const TOKEN_EXPIRY = '30d';
