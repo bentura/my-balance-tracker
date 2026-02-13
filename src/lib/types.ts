@@ -28,6 +28,7 @@ export interface RecurringItem {
 	dayOfMonth?: number; // 1-31 for monthly
 	dayOfWeek?: number;  // 0-6 for weekly (0 = Sunday)
 	accountId: number;
+	toAccountId?: number; // For transfers: destination account
 	categoryId?: number;
 	isActive: boolean;
 	lastApplied?: string;

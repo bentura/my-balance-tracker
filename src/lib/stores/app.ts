@@ -451,30 +451,86 @@ export const runDailyProcessing = async (): Promise<void> => {
 		}
 
 		if (isDue) {
-			// Create a transaction for this recurring item
-			const tx = await storage.createTransaction({
-				description: item.name,
-				amount: item.amount,
-				type: item.type,
-				accountId: item.accountId,
-				categoryId: item.categoryId,
-				date: todayStr,
-				isApplied: true,
-				recurringId: item.id
-			});
+			// Check if this is a transfer (has toAccountId)
+			if (item.toAccountId) {
+				// Create paired transactions for transfer
+				const fromAccount = await storage.getAccount(item.accountId);
+				const toAccount = await storage.getAccount(item.toAccountId);
+				const toAccountName = toAccount?.name ?? 'Unknown';
+				const fromAccountName = fromAccount?.name ?? 'Unknown';
 
-			// Update account balance
-			const account = await storage.getAccount(item.accountId);
-			if (account) {
-				const delta = item.type === 'in' ? item.amount : -item.amount;
-				await storage.updateAccount(item.accountId, {
-					balance: account.balance + delta
+				// Create outgoing transaction from source
+				const outTx = await storage.createTransaction({
+					description: `${item.name} → ${toAccountName}`,
+					amount: item.amount,
+					type: 'out',
+					accountId: item.accountId,
+					toAccountId: item.toAccountId,
+					categoryId: item.categoryId,
+					date: todayStr,
+					isApplied: true,
+					recurringId: item.id
 				});
+
+				// Create incoming transaction to destination
+				const inTx = await storage.createTransaction({
+					description: `${item.name} ← ${fromAccountName}`,
+					amount: item.amount,
+					type: 'in',
+					accountId: item.toAccountId,
+					toAccountId: item.accountId,
+					categoryId: item.categoryId,
+					date: todayStr,
+					isApplied: true,
+					recurringId: item.id,
+					linkedTransactionId: outTx?.id
+				});
+
+				// Link the transactions
+				if (outTx?.id && inTx?.id) {
+					await storage.updateTransaction(outTx.id, { linkedTransactionId: inTx.id });
+				}
+
+				// Update both account balances
+				if (fromAccount) {
+					await storage.updateAccount(item.accountId, {
+						balance: fromAccount.balance - item.amount
+					});
+				}
+				if (toAccount) {
+					await storage.updateAccount(item.toAccountId, {
+						balance: toAccount.balance + item.amount
+					});
+				}
+
+				console.log('[MBT] Applied recurring transfer:', item.name);
+			} else {
+				// Regular recurring transaction (not a transfer)
+				const tx = await storage.createTransaction({
+					description: item.name,
+					amount: item.amount,
+					type: item.type,
+					accountId: item.accountId,
+					categoryId: item.categoryId,
+					date: todayStr,
+					isApplied: true,
+					recurringId: item.id
+				});
+
+				// Update account balance
+				const account = await storage.getAccount(item.accountId);
+				if (account) {
+					const delta = item.type === 'in' ? item.amount : -item.amount;
+					await storage.updateAccount(item.accountId, {
+						balance: account.balance + delta
+					});
+				}
+
+				console.log('[MBT] Applied recurring item:', item.name);
 			}
 
 			// Mark the recurring item as applied today
 			await storage.updateRecurringItem(item.id!, { lastApplied: todayStr });
-			console.log('[MBT] Applied recurring item:', item.name);
 		}
 	}
 

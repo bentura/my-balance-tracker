@@ -23,14 +23,18 @@
 	let amount = $state('');
 	let dayOfMonth = $state('1');
 	let accountId = $state('');
+	let toAccountId = $state('');
 	let categoryId = $state('');
+	let isTransfer = $state(false);
 
 	const openAddModal = () => {
 		name = '';
 		amount = '';
 		dayOfMonth = '1';
 		accountId = $accounts[0]?.id?.toString() ?? '';
+		toAccountId = $accounts[1]?.id?.toString() ?? '';
 		categoryId = '';
+		isTransfer = false;
 		editingItem = null;
 		showAddModal = true;
 	};
@@ -40,7 +44,9 @@
 		amount = item.amount.toString();
 		dayOfMonth = item.dayOfMonth?.toString() ?? '1';
 		accountId = item.accountId.toString();
+		toAccountId = item.toAccountId?.toString() ?? ($accounts.find(a => a.id !== item.accountId)?.id?.toString() ?? '');
 		categoryId = item.categoryId?.toString() ?? '';
+		isTransfer = !!item.toAccountId;
 		editingItem = item;
 		showAddModal = true;
 	};
@@ -54,6 +60,7 @@
 		const amountNum = parseFloat(amount);
 		const day = parseInt(dayOfMonth, 10);
 		const accId = parseInt(accountId, 10);
+		const toAccId = toAccountId ? parseInt(toAccountId, 10) : undefined;
 		const catId = categoryId ? parseInt(categoryId, 10) : undefined;
 
 		if (!name.trim()) {
@@ -68,6 +75,16 @@
 			showFeedback('Please select an account', 'error');
 			return;
 		}
+		if (isTransfer) {
+			if (!toAccId || isNaN(toAccId)) {
+				showFeedback('Please select a destination account', 'error');
+				return;
+			}
+			if (accId === toAccId) {
+				showFeedback('From and To accounts must be different', 'error');
+				return;
+			}
+		}
 
 		if (editingItem) {
 			await updateRecurringItem(editingItem.id!, {
@@ -75,6 +92,7 @@
 				amount: amountNum,
 				dayOfMonth: day,
 				accountId: accId,
+				toAccountId: isTransfer ? toAccId : undefined,
 				categoryId: catId
 			});
 		} else {
@@ -85,6 +103,7 @@
 				frequency: 'monthly',
 				dayOfMonth: day,
 				accountId: accId,
+				toAccountId: isTransfer ? toAccId : undefined,
 				categoryId: catId,
 				isActive: true
 			});
@@ -151,14 +170,17 @@
 						class="card flex items-center gap-3 p-4"
 						class:opacity-50={!item.isActive}
 					>
-						<div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
-							📉
+						<div class="flex h-10 w-10 items-center justify-center rounded-full" class:bg-red-100={!item.toAccountId} class:text-red-600={!item.toAccountId} class:bg-blue-100={!!item.toAccountId} class:text-blue-600={!!item.toAccountId}>
+							{item.toAccountId ? '🔄' : '📉'}
 						</div>
 
 						<div class="flex-1">
 							<p class="font-medium">{item.name}</p>
 							<p class="text-sm text-slate">
 								Day {item.dayOfMonth} · {getAccountById(item.accountId)?.name ?? 'Unknown'}
+								{#if item.toAccountId}
+									→ {getAccountById(item.toAccountId)?.name ?? 'Unknown'}
+								{/if}
 								{#if item.categoryId}
 									{@const category = getCategoryById(item.categoryId)}
 									{#if category}
@@ -244,13 +266,36 @@
 			</div>
 		</div>
 
-		<div>
-			<label class="label" for="outgoing-account">From Account</label>
-			<select id="outgoing-account" class="input" bind:value={accountId}>
-				{#each $accounts as account}
-					<option value={account.id?.toString()}>{account.name}</option>
-				{/each}
-			</select>
+		<div class="flex items-center gap-3">
+			<input
+				type="checkbox"
+				id="outgoing-transfer"
+				bind:checked={isTransfer}
+				class="h-4 w-4 rounded border-slate/30"
+			/>
+			<label for="outgoing-transfer" class="text-sm">This is a transfer between accounts</label>
+		</div>
+
+		<div class="grid gap-4" class:grid-cols-1={!isTransfer} class:grid-cols-2={isTransfer}>
+			<div>
+				<label class="label" for="outgoing-account">{isTransfer ? 'From Account' : 'Account'}</label>
+				<select id="outgoing-account" class="input" bind:value={accountId}>
+					{#each $accounts as account}
+						<option value={account.id?.toString()}>{account.name}</option>
+					{/each}
+				</select>
+			</div>
+
+			{#if isTransfer}
+				<div>
+					<label class="label" for="outgoing-to-account">To Account</label>
+					<select id="outgoing-to-account" class="input" bind:value={toAccountId}>
+						{#each $accounts.filter(a => a.id?.toString() !== accountId) as account}
+							<option value={account.id?.toString()}>{account.name}</option>
+						{/each}
+					</select>
+				</div>
+			{/if}
 		</div>
 
 		{#if $categories.length > 0}

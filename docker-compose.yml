@@ -2,7 +2,7 @@ services:
   mbt:
     build: .
     ports:
-      - "5173:8080"
+      - "8086:8080"
     restart: unless-stopped
 
   # Development mode - uncomment below and comment above to use
