@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { currentUser, isLoggedIn, isPremium, logout } from '$lib/stores';
+	import { currentUser, isLoggedIn, isPremium, logout, switchToLocalStorage } from '$lib/stores';
 	import { goto } from '$app/navigation';
 
 	let isOpen = $state(false);
@@ -15,6 +15,7 @@
 
 	const handleLogout = async () => {
 		await logout();
+		await switchToLocalStorage();
 		close();
 		goto('/');
 	};

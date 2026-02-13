@@ -13,7 +13,9 @@
 		hasCompletedOnboarding,
 		isInitialized,
 		showFeedback,
-		isPremium
+		isPremium,
+		isLoggedIn,
+		storageMode
 	} from '$lib/stores';
 	import type { TransactionType } from '$lib/types';
 
@@ -149,10 +151,31 @@
 
 <main class="min-h-screen bg-oat px-4 py-6 pt-16">
 	<div class="mx-auto max-w-2xl">
+		<!-- Login prompt for free users -->
+		{#if !$isLoggedIn}
+			<div class="mb-6 rounded-lg border border-moss/30 bg-moss/5 p-4">
+				<div class="flex items-center justify-between gap-4">
+					<div>
+						<p class="font-medium">Sync across devices</p>
+						<p class="text-sm text-slate">Log in to access your data anywhere</p>
+					</div>
+					<a href="/login" class="button whitespace-nowrap">
+						Log In
+					</a>
+				</div>
+			</div>
+		{/if}
+
 		<!-- Header -->
 		<div class="mb-6">
 			<h1 class="font-serif text-2xl font-semibold">Your Accounts</h1>
-			<p class="text-sm text-slate">Current and projected balances</p>
+			<p class="text-sm text-slate">
+				{#if $isPremium}
+					Synced to cloud ☁️
+				{:else}
+					Current and projected balances
+				{/if}
+			</p>
 		</div>
 
 		<!-- Account cards -->

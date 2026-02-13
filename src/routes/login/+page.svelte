@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { login, register, isLoggedIn, isPremium, switchToApiStorage, initStore } from '$lib/stores';
+	import { login, register, isLoggedIn, isPremium, switchToApiStorage, initStore, checkAuth } from '$lib/stores';
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
+	import { isBiometricAvailable, authenticateWithBiometric, hasBiometricSetup } from '$lib/biometric';
 
 	let mode = $state<'login' | 'register'>('login');
 	let email = $state('');
@@ -10,13 +11,42 @@
 	let confirmPassword = $state('');
 	let error = $state('');
 	let loading = $state(false);
+	let biometricAvailable = $state(false);
+	let biometricLoading = $state(false);
 
-	onMount(() => {
+	onMount(async () => {
 		// Redirect if already logged in
 		if ($isLoggedIn) {
 			goto('/dashboard');
+			return;
 		}
+
+		// Check if biometric is available
+		biometricAvailable = await isBiometricAvailable();
 	});
+
+	const handleBiometricLogin = async () => {
+		biometricLoading = true;
+		error = '';
+
+		try {
+			const success = await authenticateWithBiometric();
+			if (success) {
+				// Refresh auth state
+				await checkAuth();
+				if (get(isPremium)) {
+					await switchToApiStorage();
+				}
+				goto('/dashboard');
+			} else {
+				error = 'Biometric authentication failed. Please use your password.';
+			}
+		} catch {
+			error = 'Biometric authentication not available';
+		} finally {
+			biometricLoading = false;
+		}
+	};
 
 	const handleSubmit = async () => {
 		error = '';
@@ -138,6 +168,27 @@
 							{mode === 'login' ? 'Log In' : 'Create Account'}
 						{/if}
 					</button>
+
+					{#if mode === 'login' && biometricAvailable}
+						<div class="relative">
+							<div class="absolute inset-0 flex items-center">
+								<div class="w-full border-t border-gray-200"></div>
+							</div>
+							<div class="relative flex justify-center text-sm">
+								<span class="bg-white px-2 text-slate">or</span>
+							</div>
+						</div>
+
+						<button 
+							type="button"
+							class="button-secondary w-full flex items-center justify-center gap-2"
+							onclick={handleBiometricLogin}
+							disabled={biometricLoading}
+						>
+							<span class="text-lg">👆</span>
+							{biometricLoading ? 'Authenticating...' : 'Use Fingerprint / Face ID'}
+						</button>
+					{/if}
 				</div>
 			</form>
 

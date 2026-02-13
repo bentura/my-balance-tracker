@@ -98,5 +98,24 @@ export async function initDb() {
 		)
 	`;
 
+	// Biometric auth tables
+	await sql`
+		CREATE TABLE IF NOT EXISTS biometric_credentials (
+			id SERIAL PRIMARY KEY,
+			user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+			credential_id VARCHAR(512) UNIQUE NOT NULL,
+			public_key TEXT NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`;
+
+	await sql`
+		CREATE TABLE IF NOT EXISTS biometric_challenges (
+			user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+			challenge VARCHAR(255) NOT NULL,
+			expires_at TIMESTAMP NOT NULL
+		)
+	`;
+
 	console.log('[MBT] Database schema initialized');
 }
