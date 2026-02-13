@@ -1,0 +1,52 @@
+version: "3.8"
+
+services:
+  # PostgreSQL database
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mbt
+      POSTGRES_PASSWORD: mbt_secret_2026
+      POSTGRES_DB: mbt
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mbt"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # MBT App (Node.js server)
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://mbt:mbt_secret_2026@db:5432/mbt
+      - JWT_SECRET=${JWT_SECRET:-mbt_jwt_secret_change_in_production_2026}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - PUBLIC_APP_URL=https://mybalancetracker.co.uk
+      - PUBLIC_STRIPE_PUBLISHABLE_KEY=${PUBLIC_STRIPE_PUBLISHABLE_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Caddy reverse proxy (handles HTTPS automatically)
+  caddy:
+    image: caddy:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

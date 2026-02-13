@@ -1,0 +1,4 @@
+mybalancetracker.co.uk, www.mybalancetracker.co.uk,
+mybalancetracker.com, www.mybalancetracker.com {
+    reverse_proxy app:3000
+}
