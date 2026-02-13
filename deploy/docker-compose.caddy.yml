@@ -1,0 +1,24 @@
+services:
+  caddy:
+    image: caddy:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - mbt-uat_default
+      - mbt-prod_default
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  mbt-uat_default:
+    external: true
+  mbt-prod_default:
+    external: true

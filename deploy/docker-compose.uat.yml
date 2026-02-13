@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mbt
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mbt_uat_secret_2026}
+      POSTGRES_DB: mbt
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mbt"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://mbt:${DB_PASSWORD:-mbt_uat_secret_2026}@db:5432/mbt
+      - JWT_SECRET=${JWT_SECRET:-mbt_jwt_uat_2026}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - PUBLIC_APP_URL=https://uat.mybalancetracker.co.uk
+      - PUBLIC_STRIPE_PUBLISHABLE_KEY=${PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      - ADMIN_SECRET=${ADMIN_SECRET:-mbt_admin_uat_2026}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

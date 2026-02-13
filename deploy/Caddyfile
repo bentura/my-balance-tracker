@@ -1,0 +1,10 @@
+# UAT
+uat.mybalancetracker.co.uk {
+    reverse_proxy mbt-uat-app-1:3000
+}
+
+# Production
+mybalancetracker.co.uk, www.mybalancetracker.co.uk,
+mybalancetracker.com, www.mybalancetracker.com {
+    reverse_proxy mbt-prod-app-1:3000
+}
