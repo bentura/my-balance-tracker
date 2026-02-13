@@ -98,6 +98,32 @@ export async function initDb() {
 		)
 	`;
 
+	// Voucher codes
+	await sql`
+		CREATE TABLE IF NOT EXISTS voucher_codes (
+			id SERIAL PRIMARY KEY,
+			code VARCHAR(50) UNIQUE NOT NULL,
+			description VARCHAR(255),
+			max_uses INTEGER DEFAULT 1,
+			times_used INTEGER DEFAULT 0,
+			duration_months INTEGER DEFAULT 1,
+			expires_at TIMESTAMP,
+			is_active BOOLEAN DEFAULT true,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`;
+
+	await sql`
+		CREATE TABLE IF NOT EXISTS voucher_redemptions (
+			id SERIAL PRIMARY KEY,
+			voucher_id INTEGER REFERENCES voucher_codes(id) ON DELETE CASCADE,
+			user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+			redeemed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			subscription_expires_at TIMESTAMP NOT NULL,
+			UNIQUE(voucher_id, user_id)
+		)
+	`;
+
 	// Biometric auth tables
 	await sql`
 		CREATE TABLE IF NOT EXISTS biometric_credentials (
