@@ -586,15 +586,6 @@
 							</div>
 						{/each}
 
-						<!-- Net summary -->
-						<div class="border-t pt-3">
-							<div class="flex items-center justify-between">
-								<p class="text-sm font-semibold">Total Monthly Net</p>
-								<p class="text-sm font-semibold" class:text-green-600={recurringIncomeTotal - recurringOutgoingsTotal >= 0} class:text-red-600={recurringIncomeTotal - recurringOutgoingsTotal < 0}>
-									{recurringIncomeTotal - recurringOutgoingsTotal >= 0 ? '+' : ''}{formatCurrencySimple(recurringIncomeTotal - recurringOutgoingsTotal)}/mo
-								</p>
-							</div>
-						</div>
 					</div>
 				{/if}
 			</div>
