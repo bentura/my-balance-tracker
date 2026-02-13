@@ -4,6 +4,7 @@
 	import { Modal } from '$lib/components';
 
 	let showHowItWorks = $state(false);
+	let showWhyLogin = $state(false);
 
 	// Redirect to dashboard if already onboarded
 	$effect(() => {
@@ -55,11 +56,19 @@
 			</button>
 		</div>
 
-		<!-- Footer note -->
-		<p class="mt-10 text-sm text-slate">
-			Free version: data stays on your device.<br />
-			Log in to sync across devices.
-		</p>
+		<!-- Footer note with info button -->
+		<div class="mt-10 flex items-center justify-center gap-2">
+			<p class="text-sm text-slate">
+				No account needed to get started
+			</p>
+			<button
+				class="flex h-5 w-5 items-center justify-center rounded-full bg-slate/20 text-xs text-slate hover:bg-slate/30"
+				onclick={() => showWhyLogin = true}
+				aria-label="Learn more about accounts"
+			>
+				?
+			</button>
+		</div>
 	</div>
 </main>
 
@@ -116,5 +125,69 @@
 		>
 			Got it!
 		</button>
+	</div>
+</Modal>
+
+<!-- Why Log In Modal -->
+<Modal
+	isOpen={showWhyLogin}
+	title="Free vs Pro"
+	onClose={() => showWhyLogin = false}
+	size="md"
+>
+	<div class="space-y-4 text-sm text-ink">
+		<div class="rounded-lg border border-slate/20 p-4">
+			<div class="flex items-center gap-2 mb-2">
+				<span class="text-lg">🆓</span>
+				<p class="font-semibold">Free (No Account)</p>
+			</div>
+			<ul class="space-y-1 text-slate">
+				<li>✓ All features included</li>
+				<li>✓ Data stays on your device only</li>
+				<li>✓ Completely private — we never see your data</li>
+				<li>✗ No sync between devices</li>
+				<li>✗ Data lost if you clear browser</li>
+			</ul>
+		</div>
+
+		<div class="rounded-lg border-2 border-moss/30 bg-moss/5 p-4">
+			<div class="flex items-center gap-2 mb-2">
+				<span class="text-lg">⭐</span>
+				<p class="font-semibold">Pro (£3/month)</p>
+			</div>
+			<ul class="space-y-1 text-slate">
+				<li>✓ All features included</li>
+				<li>✓ Sync across all your devices</li>
+				<li>✓ Access from any browser</li>
+				<li>✓ Automatic cloud backup</li>
+				<li>✓ Cancel anytime</li>
+			</ul>
+		</div>
+
+		<div class="rounded-lg bg-amber-50 p-3 text-amber-800">
+			<p class="font-semibold">📤 Data & Privacy</p>
+			<p class="mt-1 text-sm">
+				<strong>Free:</strong> Your financial data never leaves your device. We can't see it.
+			</p>
+			<p class="mt-1 text-sm">
+				<strong>Pro:</strong> Your data is encrypted and stored on our servers to enable syncing. 
+				You can export or delete your data at any time. We never sell or share your information.
+			</p>
+		</div>
+
+		<div class="flex gap-3 pt-2">
+			<button
+				class="button-secondary flex-1"
+				onclick={() => showWhyLogin = false}
+			>
+				Stay Free
+			</button>
+			<a
+				href="/login"
+				class="button flex-1 text-center"
+			>
+				Log In / Sign Up
+			</a>
+		</div>
 	</div>
 </Modal>
