@@ -37,11 +37,18 @@
 				href="/onboarding"
 				class="button w-full py-3 text-base"
 			>
-				Start
+				Start Fresh
+			</a>
+
+			<a
+				href="/login"
+				class="button-secondary w-full py-3 text-base"
+			>
+				Log In
 			</a>
 
 			<button
-				class="button-secondary w-full py-3 text-base"
+				class="text-sm text-moss hover:underline mt-2"
 				onclick={() => showHowItWorks = true}
 			>
 				How It Works
@@ -50,8 +57,8 @@
 
 		<!-- Footer note -->
 		<p class="mt-10 text-sm text-slate">
-			Your data stays on your device.<br />
-			No account needed.
+			Free version: data stays on your device.<br />
+			Log in to sync across devices.
 		</p>
 	</div>
 </main>
