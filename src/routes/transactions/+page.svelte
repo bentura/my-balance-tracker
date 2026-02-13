@@ -16,7 +16,55 @@
 	import type { Transaction } from '$lib/types';
 
 	// Recurring items section
-	let showRecurring = $state(true);
+	let showRecurring = $state(false);
+	let expandedAccounts = $state<Set<number>>(new Set());
+
+	const toggleAccountExpanded = (accountId: number) => {
+		const newSet = new Set(expandedAccounts);
+		if (newSet.has(accountId)) {
+			newSet.delete(accountId);
+		} else {
+			newSet.add(accountId);
+		}
+		expandedAccounts = newSet;
+	};
+
+	// Group recurring items by account
+	const recurringByAccount = $derived(() => {
+		const groups: Map<number, { account: typeof $accounts[0], income: typeof $recurringIncome, outgoings: typeof $recurringOutgoings, incomeTotal: number, outgoingsTotal: number }> = new Map();
+		
+		// Process income
+		for (const item of $recurringIncome) {
+			if (!groups.has(item.accountId)) {
+				const account = getAccountById(item.accountId);
+				if (account) {
+					groups.set(item.accountId, { account, income: [], outgoings: [], incomeTotal: 0, outgoingsTotal: 0 });
+				}
+			}
+			const group = groups.get(item.accountId);
+			if (group) {
+				group.income.push(item);
+				if (item.isActive) group.incomeTotal += item.amount;
+			}
+		}
+		
+		// Process outgoings
+		for (const item of $recurringOutgoings) {
+			if (!groups.has(item.accountId)) {
+				const account = getAccountById(item.accountId);
+				if (account) {
+					groups.set(item.accountId, { account, income: [], outgoings: [], incomeTotal: 0, outgoingsTotal: 0 });
+				}
+			}
+			const group = groups.get(item.accountId);
+			if (group) {
+				group.outgoings.push(item);
+				if (item.isActive) group.outgoingsTotal += item.amount;
+			}
+		}
+		
+		return Array.from(groups.values()).sort((a, b) => a.account.name.localeCompare(b.account.name));
+	});
 
 	const recurringIncomeTotal = $derived(
 		$recurringIncome.filter(i => i.isActive).reduce((sum, i) => sum + i.amount, 0)
@@ -394,81 +442,90 @@
 				</button>
 
 				{#if showRecurring}
-					<div class="mt-4 space-y-4">
-						<!-- Income -->
-						{#if $recurringIncome.length > 0}
-							<div>
-								<div class="mb-2 flex items-center justify-between">
-									<h3 class="text-sm font-semibold text-green-600">Income</h3>
-									<span class="text-sm font-semibold text-green-600">
-										+{formatCurrencySimple(recurringIncomeTotal)}/mo
-									</span>
-								</div>
-								<div class="space-y-1">
-									{#each $recurringIncome as item}
-										{@const account = getAccountById(item.accountId)}
-										{@const category = item.categoryId ? getCategoryById(item.categoryId) : null}
-										<div class="flex items-center gap-3 rounded-lg bg-green-50 px-3 py-2" class:opacity-50={!item.isActive}>
-											<div class="flex-1">
-												<p class="text-sm font-medium">
-													{item.name}
-													{#if !item.isActive}
-														<span class="ml-1 text-xs text-amber-600">(paused)</span>
-													{/if}
-												</p>
-												<p class="text-xs text-slate">
-													Day {item.dayOfMonth} · {account?.name ?? 'Unknown'}
-													{#if category}
-														<span class="ml-1 rounded bg-slate/10 px-1 py-0.5" style="color: {category.color ?? '#5b6770'}">{category.name}</span>
-													{/if}
-												</p>
-											</div>
-											<p class="text-sm font-semibold text-green-600">+{formatCurrencySimple(item.amount)}</p>
-										</div>
-									{/each}
-								</div>
-							</div>
-						{/if}
+					<div class="mt-4 space-y-3">
+						<!-- Grouped by account -->
+						{#each recurringByAccount() as group}
+							{@const isExpanded = expandedAccounts.has(group.account.id!)}
+							{@const netAmount = group.incomeTotal - group.outgoingsTotal}
+							<div class="rounded-lg border border-slate/20 bg-white">
+								<button
+									class="flex w-full items-center justify-between p-3 text-left hover:bg-slate/5"
+									onclick={() => toggleAccountExpanded(group.account.id!)}
+								>
+									<div class="flex items-center gap-2">
+										<span class="text-slate transition-transform" class:rotate-180={isExpanded}>▼</span>
+										<span class="font-medium">{group.account.name}</span>
+										<span class="text-xs text-slate">
+											({group.income.length + group.outgoings.length} items)
+										</span>
+									</div>
+									<div class="text-right">
+										<span class="text-sm font-semibold" class:text-green-600={netAmount >= 0} class:text-red-600={netAmount < 0}>
+											{netAmount >= 0 ? '+' : ''}{formatCurrencySimple(netAmount)}/mo
+										</span>
+									</div>
+								</button>
 
-						<!-- Outgoings -->
-						{#if $recurringOutgoings.length > 0}
-							<div>
-								<div class="mb-2 flex items-center justify-between">
-									<h3 class="text-sm font-semibold text-red-600">Outgoings</h3>
-									<span class="text-sm font-semibold text-red-600">
-										-{formatCurrencySimple(recurringOutgoingsTotal)}/mo
-									</span>
-								</div>
-								<div class="space-y-1">
-									{#each $recurringOutgoings as item}
-										{@const account = getAccountById(item.accountId)}
-										{@const category = item.categoryId ? getCategoryById(item.categoryId) : null}
-										<div class="flex items-center gap-3 rounded-lg bg-red-50 px-3 py-2" class:opacity-50={!item.isActive}>
-											<div class="flex-1">
-												<p class="text-sm font-medium">
-													{item.name}
-													{#if !item.isActive}
-														<span class="ml-1 text-xs text-amber-600">(paused)</span>
-													{/if}
-												</p>
-												<p class="text-xs text-slate">
-													Day {item.dayOfMonth} · {account?.name ?? 'Unknown'}
-													{#if category}
-														<span class="ml-1 rounded bg-slate/10 px-1 py-0.5" style="color: {category.color ?? '#5b6770'}">{category.name}</span>
-													{/if}
+								{#if isExpanded}
+									<div class="space-y-1 border-t border-slate/10 p-3 pt-2">
+										<!-- Income for this account -->
+										{#each group.income as item}
+											{@const category = item.categoryId ? getCategoryById(item.categoryId) : null}
+											<div class="flex items-center gap-3 rounded-lg bg-green-50 px-3 py-2" class:opacity-50={!item.isActive}>
+												<div class="flex-1">
+													<p class="text-sm font-medium">
+														{item.name}
+														{#if !item.isActive}
+															<span class="ml-1 text-xs text-amber-600">(paused)</span>
+														{/if}
+													</p>
+													<p class="text-xs text-slate">
+														Day {item.dayOfMonth}
+														{#if category}
+															<span class="ml-1 rounded bg-slate/10 px-1 py-0.5" style="color: {category.color ?? '#5b6770'}">{category.name}</span>
+														{/if}
+													</p>
+												</div>
+												<p class="text-sm font-semibold text-green-600">+{formatCurrencySimple(item.amount)}</p>
+											</div>
+										{/each}
+
+										<!-- Outgoings for this account -->
+										{#each group.outgoings as item}
+											{@const category = item.categoryId ? getCategoryById(item.categoryId) : null}
+											{@const toAccount = item.toAccountId ? getAccountById(item.toAccountId) : null}
+											<div class="flex items-center gap-3 rounded-lg px-3 py-2" class:bg-red-50={!item.toAccountId} class:bg-blue-50={!!item.toAccountId} class:opacity-50={!item.isActive}>
+												<div class="flex-1">
+													<p class="text-sm font-medium">
+														{item.name}
+														{#if !item.isActive}
+															<span class="ml-1 text-xs text-amber-600">(paused)</span>
+														{/if}
+													</p>
+													<p class="text-xs text-slate">
+														Day {item.dayOfMonth}
+														{#if toAccount}
+															→ {toAccount.name}
+														{/if}
+														{#if category}
+															<span class="ml-1 rounded bg-slate/10 px-1 py-0.5" style="color: {category.color ?? '#5b6770'}">{category.name}</span>
+														{/if}
+													</p>
+												</div>
+												<p class="text-sm font-semibold" class:text-red-600={!item.toAccountId} class:text-blue-600={!!item.toAccountId}>
+													-{formatCurrencySimple(item.amount)}
 												</p>
 											</div>
-											<p class="text-sm font-semibold text-red-600">-{formatCurrencySimple(item.amount)}</p>
-										</div>
-									{/each}
-								</div>
+										{/each}
+									</div>
+								{/if}
 							</div>
-						{/if}
+						{/each}
 
 						<!-- Net summary -->
 						<div class="border-t pt-3">
 							<div class="flex items-center justify-between">
-								<p class="text-sm font-semibold">Monthly Net</p>
+								<p class="text-sm font-semibold">Total Monthly Net</p>
 								<p class="text-sm font-semibold" class:text-green-600={recurringIncomeTotal - recurringOutgoingsTotal >= 0} class:text-red-600={recurringIncomeTotal - recurringOutgoingsTotal < 0}>
 									{recurringIncomeTotal - recurringOutgoingsTotal >= 0 ? '+' : ''}{formatCurrencySimple(recurringIncomeTotal - recurringOutgoingsTotal)}/mo
 								</p>
