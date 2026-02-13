@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { hasCompletedOnboarding, isInitialized } from '$lib/stores';
+	import { hasCompletedOnboarding, isInitialized, features, isStandalone } from '$lib/stores';
 	import { Modal } from '$lib/components';
 
 	let showHowItWorks = $state(false);
@@ -38,15 +38,17 @@
 				href="/onboarding"
 				class="button w-full py-3 text-base"
 			>
-				Start Fresh
+				{$isStandalone ? 'Get Started' : 'Start Fresh'}
 			</a>
 
-			<a
-				href="/login"
-				class="button-secondary w-full py-3 text-base"
-			>
-				Log In
-			</a>
+			{#if $features.userAuth}
+				<a
+					href="/login"
+					class="button-secondary w-full py-3 text-base"
+				>
+					Log In
+				</a>
+			{/if}
 
 			<button
 				class="text-sm text-moss hover:underline mt-2"
@@ -56,19 +58,21 @@
 			</button>
 		</div>
 
-		<!-- Footer note with info button -->
-		<div class="mt-10 flex items-center justify-center gap-2">
-			<p class="text-sm text-slate">
-				No account needed to get started
-			</p>
-			<button
-				class="flex h-5 w-5 items-center justify-center rounded-full bg-slate/20 text-xs text-slate hover:bg-slate/30"
-				onclick={() => showWhyLogin = true}
-				aria-label="Learn more about accounts"
-			>
-				?
-			</button>
-		</div>
+		<!-- Footer note with info button (SaaS only) -->
+		{#if $features.userAuth}
+			<div class="mt-10 flex items-center justify-center gap-2">
+				<p class="text-sm text-slate">
+					No account needed to get started
+				</p>
+				<button
+					class="flex h-5 w-5 items-center justify-center rounded-full bg-slate/20 text-xs text-slate hover:bg-slate/30"
+					onclick={() => showWhyLogin = true}
+					aria-label="Learn more about accounts"
+				>
+					?
+				</button>
+			</div>
+		{/if}
 	</div>
 </main>
 

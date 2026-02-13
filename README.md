@@ -20,13 +20,55 @@ MBT helps you understand where your money goes without the complexity of full-fe
 - **Accessible** — Designed with accessibility in mind, including for neurodivergent users
 - **Privacy first** — Nothing leaves your device unless you explicitly export it
 
+## Deployment Options
+
+### 1. Hosted SaaS (mybalancetracker.co.uk)
+
+The official hosted version with:
+- Free tier: Local storage only, data never leaves your device
+- Pro tier (£3/month): Cloud sync across devices, encrypted storage
+
+### 2. Self-Hosted (Standalone)
+
+Run your own instance with all features included, no subscriptions needed.
+
+```bash
+# Clone the repo
+git clone https://github.com/bentura/my-balance-tracker.git
+cd my-balance-tracker
+
+# Copy standalone compose file
+cp deploy/docker-compose.standalone.yml docker-compose.yml
+
+# Create .env file
+cat > .env << EOF
+DB_PASSWORD=your-secure-db-password
+JWT_SECRET=your-random-jwt-secret
+ADMIN_SECRET=your-admin-password
+PUBLIC_APP_URL=http://localhost:3000
+EOF
+
+# Start
+docker compose up -d --build
+```
+
+Access at http://localhost:3000 (or configure your reverse proxy).
+
+**Self-hosted features:**
+- ✅ All app features included
+- ✅ Admin panel for user management
+- ✅ Data stored on your server
+- ❌ No Stripe/subscriptions (not needed)
+- ❌ No voucher codes (SaaS-only feature)
+
 ## Tech Stack
 
 - **SvelteKit** — Fast, modern web framework
 - **TypeScript** — Type-safe code
 - **Tailwind CSS** — Utility-first styling
 - **Dexie.js** — IndexedDB wrapper for local storage
-- **Docker + Nginx** — Production deployment
+- **PostgreSQL** — Server-side data storage
+- **Docker** — Production deployment
 
 ## Development
 
@@ -50,7 +92,7 @@ The app will be available at `http://localhost:5173`
 ### Building for Production
 
 ```bash
-# Build static site
+# Build 
 npm run build
 
 # Preview production build
@@ -60,11 +102,25 @@ npm run preview
 ### Docker Deployment
 
 ```bash
-# Build and run with Docker Compose
-docker compose up -d --build
+# SaaS mode (with Stripe, subscriptions)
+docker compose -f deploy/docker-compose.prod.yml up -d --build
+
+# Standalone mode (self-hosted, all features)
+docker compose -f deploy/docker-compose.standalone.yml up -d --build
 ```
 
-The app will be served via Nginx on port 8086.
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `MBT_MODE` | No | `saas` (default) or `standalone` |
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `JWT_SECRET` | Yes | Random string for JWT signing |
+| `ADMIN_SECRET` | Yes | Password for /admin access |
+| `PUBLIC_APP_URL` | Yes | Your app's public URL |
+| `STRIPE_SECRET_KEY` | SaaS only | Stripe API secret key |
+| `STRIPE_WEBHOOK_SECRET` | SaaS only | Stripe webhook signing secret |
+| `PUBLIC_STRIPE_PUBLISHABLE_KEY` | SaaS only | Stripe publishable key |
 
 ## Project Structure
 
@@ -72,29 +128,30 @@ The app will be served via Nginx on port 8086.
 src/
 ├── lib/
 │   ├── components/    # Reusable UI components
+│   ├── server/        # Server-side code (auth, db, stripe)
 │   ├── stores/        # Svelte stores (app state)
-│   ├── storage/       # IndexedDB adapter (Dexie)
-│   └── types.ts       # TypeScript type definitions
+│   ├── storage/       # Storage adapters (Dexie, API)
+│   └── types/         # TypeScript type definitions
 ├── routes/
 │   ├── account/[id]/  # Individual account view
+│   ├── admin/         # Admin dashboard
+│   ├── api/           # API endpoints
 │   ├── categories/    # Category management
 │   ├── dashboard/     # Main dashboard
+│   ├── login/         # Auth pages
 │   ├── onboarding/    # First-run setup flow
 │   ├── recurring/     # Income & outgoings management
 │   ├── settings/      # App settings, import/export
-│   └── transactions/  # Transaction history
+│   ├── transactions/  # Transaction history
+│   └── upgrade/       # Pro upgrade page
 └── app.html           # HTML template
 ```
 
 ## Data & Privacy
 
-All data is stored locally in your browser using IndexedDB. You can:
+**Free/Standalone users:** All data stored locally in your browser (IndexedDB). Nothing sent to servers.
 
-- **Export** your data as JSON from Settings
-- **Import** data from a previous export
-- **Clear** all data from Settings
-
-No data is ever sent to external servers.
+**Pro users:** Data encrypted and stored securely for syncing. You can export or delete everything anytime.
 
 ## License
 

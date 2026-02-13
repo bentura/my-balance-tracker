@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { currentUser, isLoggedIn, isPremium, startCheckout, checkAuth, switchToApiStorage } from '$lib/stores';
+	import { currentUser, isLoggedIn, isPremium, startCheckout, checkAuth, switchToApiStorage, features, isStandalone } from '$lib/stores';
 
 	let loading = $state(false);
 	let error = $state('');
@@ -74,18 +74,43 @@
 </script>
 
 <svelte:head>
-	<title>Upgrade to Pro - MyBalanceTracker</title>
+	<title>{$isStandalone ? 'MyBalanceTracker' : 'Upgrade to Pro - MyBalanceTracker'}</title>
 </svelte:head>
 
 <main class="min-h-screen bg-oat px-4 py-6 pt-16">
 	<div class="mx-auto max-w-lg">
-		<div class="text-center">
-			<div class="mb-4 text-5xl">⭐</div>
-			<h1 class="font-serif text-2xl font-semibold">Upgrade to Pro</h1>
-			<p class="mt-2 text-slate">Access your finances from anywhere</p>
-		</div>
+		{#if $isStandalone}
+			<!-- Standalone mode - no subscriptions needed -->
+			<div class="text-center">
+				<div class="mb-4 text-5xl">🏠</div>
+				<h1 class="font-serif text-2xl font-semibold">Self-Hosted Edition</h1>
+				<p class="mt-2 text-slate">You're running the standalone version</p>
+			</div>
 
-		{#if $isPremium}
+			<div class="card mt-8 text-center">
+				<div class="text-4xl mb-4">✅</div>
+				<h2 class="text-lg font-semibold">All Features Unlocked</h2>
+				<p class="mt-2 text-slate">
+					You have access to all MyBalanceTracker features. Your data is stored locally on this server.
+				</p>
+			</div>
+
+			<div class="card mt-4">
+				<h2 class="mb-3 font-semibold">Self-Hosting Benefits</h2>
+				<ul class="space-y-2 text-sm text-slate">
+					<li class="flex gap-2">✓ Complete control over your data</li>
+					<li class="flex gap-2">✓ No subscription required</li>
+					<li class="flex gap-2">✓ All features included</li>
+					<li class="flex gap-2">✓ Run on your own hardware</li>
+				</ul>
+			</div>
+
+			<div class="mt-8 text-center">
+				<a href="/dashboard" class="text-sm text-moss hover:underline">
+					← Back to Dashboard
+				</a>
+			</div>
+		{:else if $isPremium}
 			<!-- Already subscribed -->
 			<div class="card mt-8 text-center">
 				<div class="text-4xl mb-4">✅</div>
@@ -211,22 +236,24 @@
 			</div>
 		{/if}
 
-		<!-- Privacy info -->
-		<div class="card mt-4">
-			<h2 class="mb-3 font-semibold">Data & Privacy</h2>
-			<p class="text-sm text-slate mb-3">
-				<strong>Free:</strong> All data stays on your device only. We never see it.
-			</p>
-			<p class="text-sm text-slate">
-				<strong>Pro:</strong> Data encrypted and stored securely for syncing. 
-				You can export or delete everything anytime.
-			</p>
-		</div>
+		{#if !$isStandalone}
+			<!-- Privacy info (SaaS only) -->
+			<div class="card mt-4">
+				<h2 class="mb-3 font-semibold">Data & Privacy</h2>
+				<p class="text-sm text-slate mb-3">
+					<strong>Free:</strong> All data stays on your device only. We never see it.
+				</p>
+				<p class="text-sm text-slate">
+					<strong>Pro:</strong> Data encrypted and stored securely for syncing. 
+					You can export or delete everything anytime.
+				</p>
+			</div>
 
-		<div class="mt-8 text-center">
-			<a href="/dashboard" class="text-sm text-moss hover:underline">
-				← Back to Dashboard
-			</a>
-		</div>
+			<div class="mt-8 text-center">
+				<a href="/dashboard" class="text-sm text-moss hover:underline">
+					← Back to Dashboard
+				</a>
+			</div>
+		{/if}
 	</div>
 </main>

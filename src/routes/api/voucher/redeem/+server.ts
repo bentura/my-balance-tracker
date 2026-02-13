@@ -3,8 +3,14 @@ import type { RequestHandler } from './$types';
 import { getUserFromRequest, updateUserSubscription } from '$lib/server/auth';
 import { sql } from '$lib/server/db';
 import { stripe } from '$lib/server/stripe';
+import { serverFeatures } from '$lib/server/config';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
+	// Vouchers only work in SaaS mode
+	if (!serverFeatures.vouchers) {
+		return json({ error: 'Voucher codes are not available in standalone mode' }, { status: 404 });
+	}
+
 	const user = await getUserFromRequest(cookies);
 	if (!user) {
 		return json({ error: 'You must be logged in to redeem a voucher' }, { status: 401 });

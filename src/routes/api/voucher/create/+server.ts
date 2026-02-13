@@ -2,11 +2,16 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { sql } from '$lib/server/db';
 import { env } from '$env/dynamic/private';
+import { serverFeatures } from '$lib/server/config';
 
 // Simple admin auth via secret key
 const ADMIN_SECRET = env.ADMIN_SECRET || 'mbt_admin_secret_2026';
 
 export const POST: RequestHandler = async ({ request }) => {
+	if (!serverFeatures.vouchers) {
+		return json({ error: 'Not available in standalone mode' }, { status: 404 });
+	}
+
 	const authHeader = request.headers.get('Authorization');
 	
 	if (authHeader !== `Bearer ${ADMIN_SECRET}`) {
@@ -45,6 +50,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
 // GET - List all vouchers (admin only)
 export const GET: RequestHandler = async ({ request }) => {
+	if (!serverFeatures.vouchers) {
+		return json({ error: 'Not available in standalone mode' }, { status: 404 });
+	}
+
 	const authHeader = request.headers.get('Authorization');
 	
 	if (authHeader !== `Bearer ${ADMIN_SECRET}`) {

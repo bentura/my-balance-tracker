@@ -4,9 +4,16 @@
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { Navigation, Feedback } from '$lib/components';
-	import { initStore, isLoading, hasCompletedOnboarding, runDailyProcessing, checkAuth } from '$lib/stores';
+	import { initStore, isLoading, hasCompletedOnboarding, runDailyProcessing, checkAuth, initConfig } from '$lib/stores';
 
-	let { children } = $props();
+	let { children, data } = $props();
+
+	// Initialize config from server data
+	$effect(() => {
+		if (data?.appMode) {
+			initConfig(data.appMode, data.features || {});
+		}
+	});
 
 	// Pages that don't show the navigation
 	const noNavPages = ['/', '/onboarding'];

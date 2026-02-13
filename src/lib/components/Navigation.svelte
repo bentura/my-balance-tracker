@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { currentUser, isLoggedIn, isPremium, logout, switchToLocalStorage } from '$lib/stores';
+	import { currentUser, isLoggedIn, isPremium, logout, switchToLocalStorage, features } from '$lib/stores';
 	import { goto } from '$app/navigation';
 
 	let isOpen = $state(false);
@@ -97,40 +97,44 @@
 
 		<!-- Footer -->
 		<div class="border-t border-slate/20 p-4 space-y-2">
-			{#if $isLoggedIn}
-				{#if !$isPremium}
+			{#if $features.userAuth}
+				{#if $isLoggedIn}
+					{#if !$isPremium && $features.showUpgradePrompts}
+						<a
+							href="/upgrade"
+							class="flex items-center justify-center gap-2 rounded-lg bg-moss px-4 py-2 text-sm font-semibold text-white hover:bg-moss/90"
+							onclick={close}
+						>
+							<span>⭐</span>
+							<span>Upgrade to Pro</span>
+						</a>
+					{/if}
+					<button
+						class="w-full rounded-lg border border-slate/20 px-4 py-2 text-sm font-medium text-slate hover:bg-oat"
+						onclick={handleLogout}
+					>
+						Log Out
+					</button>
+				{:else}
 					<a
-						href="/upgrade"
+						href="/login"
 						class="flex items-center justify-center gap-2 rounded-lg bg-moss px-4 py-2 text-sm font-semibold text-white hover:bg-moss/90"
 						onclick={close}
 					>
-						<span>⭐</span>
-						<span>Upgrade to Pro</span>
+						<span>👤</span>
+						<span>Log In / Sign Up</span>
 					</a>
+					{#if $features.showUpgradePrompts}
+						<a
+							href="/upgrade"
+							class="flex items-center justify-center gap-2 rounded-lg border border-moss px-4 py-2 text-sm font-medium text-moss hover:bg-moss/10"
+							onclick={close}
+						>
+							<span>⭐</span>
+							<span>Upgrade to Pro</span>
+						</a>
+					{/if}
 				{/if}
-				<button
-					class="w-full rounded-lg border border-slate/20 px-4 py-2 text-sm font-medium text-slate hover:bg-oat"
-					onclick={handleLogout}
-				>
-					Log Out
-				</button>
-			{:else}
-				<a
-					href="/login"
-					class="flex items-center justify-center gap-2 rounded-lg bg-moss px-4 py-2 text-sm font-semibold text-white hover:bg-moss/90"
-					onclick={close}
-				>
-					<span>👤</span>
-					<span>Log In / Sign Up</span>
-				</a>
-				<a
-					href="/upgrade"
-					class="flex items-center justify-center gap-2 rounded-lg border border-moss px-4 py-2 text-sm font-medium text-moss hover:bg-moss/10"
-					onclick={close}
-				>
-					<span>⭐</span>
-					<span>Upgrade to Pro</span>
-				</a>
 			{/if}
 		</div>
 	</div>

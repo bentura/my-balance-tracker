@@ -15,7 +15,8 @@
 		showFeedback,
 		isPremium,
 		isLoggedIn,
-		storageMode
+		storageMode,
+		features
 	} from '$lib/stores';
 	import type { TransactionType } from '$lib/types';
 
@@ -151,8 +152,8 @@
 
 <main class="min-h-screen bg-oat px-4 py-6 pt-16">
 	<div class="mx-auto max-w-2xl">
-		<!-- Login prompt for free users -->
-		{#if !$isLoggedIn}
+		<!-- Login prompt for free users (SaaS only) -->
+		{#if !$isLoggedIn && $features.showUpgradePrompts}
 			<div class="mb-6 rounded-lg border border-moss/30 bg-moss/5 p-4">
 				<div class="flex items-center justify-between gap-4">
 					<div>
