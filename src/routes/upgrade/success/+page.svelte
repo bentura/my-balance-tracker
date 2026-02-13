@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { checkAuth, currentUser, isPremium } from '$lib/stores';
+	import { checkAuth, currentUser, isPremium, exportData, switchToApiStorage } from '$lib/stores';
 	import { page } from '$app/stores';
-	import { exportData } from '$lib/stores';
 
 	let syncing = $state(false);
 	let syncComplete = $state(false);
@@ -13,7 +12,7 @@
 		// Refresh user status to get updated subscription
 		await checkAuth();
 
-		// If they have local data, offer to sync it
+		// If they have premium, sync local data then switch to API storage
 		if ($isPremium) {
 			await syncLocalData();
 		}
@@ -51,6 +50,8 @@
 				}
 			}
 
+			// Switch to API storage now that we're premium
+			await switchToApiStorage();
 			syncComplete = true;
 		} catch (err: any) {
 			error = err.message || 'Failed to sync data';

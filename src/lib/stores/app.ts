@@ -3,7 +3,8 @@
 import { writable, derived, get } from 'svelte/store';
 import { browser } from '$app/environment';
 import type { StorageAdapter } from '$lib/storage';
-import { DexieAdapter } from '$lib/storage';
+import { DexieAdapter, ApiAdapter } from '$lib/storage';
+import { currentUser, isPremium } from './auth';
 import type {
 	Account,
 	Category,
@@ -128,15 +129,30 @@ export const showFeedback = (message: string, type: 'success' | 'error' = 'succe
 	feedbackTimer = setTimeout(() => feedback.set(null), 4000);
 };
 
+// Track current storage mode
+export const storageMode = writable<'local' | 'api'>('local');
+
 // Initialize the store
 export const initStore = async (): Promise<void> => {
 	if (!browser) return;
-	if (storage) return; // Already initialized
 
 	isLoading.set(true);
 
 	try {
-		storage = new DexieAdapter();
+		// Check if user is premium - use API storage
+		const user = get(currentUser);
+		const useApi = user?.subscription_status === 'active';
+		
+		if (useApi) {
+			storage = new ApiAdapter();
+			storageMode.set('api');
+			console.log('[MBT] Using API storage (Pro user)');
+		} else {
+			storage = new DexieAdapter();
+			storageMode.set('local');
+			console.log('[MBT] Using local storage (free user)');
+		}
+		
 		await storage.init();
 		await refreshAll();
 		isInitialized.set(true);
@@ -146,6 +162,28 @@ export const initStore = async (): Promise<void> => {
 	} finally {
 		isLoading.set(false);
 	}
+};
+
+// Switch storage adapter (e.g., after upgrade)
+export const switchToApiStorage = async (): Promise<void> => {
+	if (!browser) return;
+	
+	storage = new ApiAdapter();
+	storageMode.set('api');
+	await storage.init();
+	await refreshAll();
+	console.log('[MBT] Switched to API storage');
+};
+
+// Switch back to local storage (e.g., after logout)
+export const switchToLocalStorage = async (): Promise<void> => {
+	if (!browser) return;
+	
+	storage = new DexieAdapter();
+	storageMode.set('local');
+	await storage.init();
+	await refreshAll();
+	console.log('[MBT] Switched to local storage');
 };
 
 // Refresh all data from storage
