@@ -27,6 +27,14 @@ class MbtDatabase extends Dexie {
 			transactions: '++id, accountId, categoryId, date, isApplied, recurringId',
 			settings: 'id'
 		});
+		// Version 3: Add toAccountId and linkedTransactionId for transfers
+		this.version(3).stores({
+			accounts: '++id, name, createdAt',
+			categories: '++id, name',
+			recurringItems: '++id, type, accountId, isActive, createdAt',
+			transactions: '++id, accountId, toAccountId, categoryId, date, isApplied, recurringId, linkedTransactionId',
+			settings: 'id'
+		});
 	}
 }
 

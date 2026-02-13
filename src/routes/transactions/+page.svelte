@@ -42,8 +42,9 @@
 	let editingTx = $state<Transaction | null>(null);
 	let editDescription = $state('');
 	let editAmount = $state('');
-	let editType = $state<'in' | 'out'>('out');
+	let editType = $state<'in' | 'out' | 'transfer'>('out');
 	let editAccountId = $state('');
+	let editToAccountId = $state('');
 	let editCategoryId = $state('');
 	let editDate = $state('');
 
@@ -111,8 +112,9 @@
 		editingTx = tx;
 		editDescription = tx.description;
 		editAmount = tx.amount.toString();
-		editType = tx.type;
+		editType = tx.toAccountId ? 'transfer' : tx.type;
 		editAccountId = tx.accountId.toString();
+		editToAccountId = tx.toAccountId?.toString() ?? ($accounts.find(a => a.id !== tx.accountId)?.id?.toString() ?? '');
 		editCategoryId = tx.categoryId?.toString() ?? '';
 		editDate = tx.date;
 		showEditModal = true;
@@ -125,6 +127,7 @@
 
 		const amount = parseFloat(editAmount);
 		const accountId = parseInt(editAccountId, 10);
+		const toAccountId = editToAccountId ? parseInt(editToAccountId, 10) : undefined;
 		const categoryId = editCategoryId ? parseInt(editCategoryId, 10) : undefined;
 
 		if (!editDescription.trim()) {
@@ -139,8 +142,26 @@
 			showFeedback('Please select an account', 'error');
 			return;
 		}
+		if (editType === 'transfer') {
+			if (!toAccountId || isNaN(toAccountId)) {
+				showFeedback('Please select a destination account', 'error');
+				return;
+			}
+			if (accountId === toAccountId) {
+				showFeedback('From and To accounts must be different', 'error');
+				return;
+			}
+		}
 
 		const oldTx = editingTx;
+		const wasTransfer = !!oldTx.toAccountId;
+		const isNowTransfer = editType === 'transfer';
+
+		// For simplicity, if changing to/from transfer, show a message
+		if (wasTransfer !== isNowTransfer) {
+			showFeedback('Cannot convert between transfer and regular transaction. Delete and create new.', 'error');
+			return;
+		}
 
 		// If the transaction was applied and amount/type/account changed, adjust balances
 		if (oldTx.isApplied) {
@@ -153,24 +174,49 @@
 				});
 			}
 
+			// If it was a transfer, also reverse the effect on the old toAccount
+			if (oldTx.toAccountId) {
+				const oldToAccount = await storage.getAccount(oldTx.toAccountId);
+				if (oldToAccount) {
+					// The toAccount had received money (type was 'in' on linked tx)
+					const oldToDelta = oldTx.type === 'out' ? oldTx.amount : -oldTx.amount;
+					await storage.updateAccount(oldTx.toAccountId, {
+						balance: oldToAccount.balance - oldToDelta
+					});
+				}
+			}
+
 			// Apply new effect on new account
 			const newAccount = await storage.getAccount(accountId);
 			if (newAccount) {
-				// If same account, refetch since we just updated it
-				const currentBalance = accountId === oldTx.accountId
-					? (await storage.getAccount(accountId))!.balance
-					: newAccount.balance;
-				const newDelta = editType === 'in' ? amount : -amount;
+				const currentBalance = (await storage.getAccount(accountId))!.balance;
+				const newDelta = editType === 'in' ? amount : (editType === 'transfer' ? -amount : -amount);
 				await storage.updateAccount(accountId, {
 					balance: currentBalance + newDelta
 				});
 			}
+
+			// If it's a transfer, apply effect to new toAccount
+			if (isNowTransfer && toAccountId) {
+				const newToAccount = await storage.getAccount(toAccountId);
+				if (newToAccount) {
+					const currentBalance = (await storage.getAccount(toAccountId))!.balance;
+					await storage.updateAccount(toAccountId, {
+						balance: currentBalance + amount
+					});
+				}
+			}
 		}
+
+		// For transfers, keep original type (out for source, in for destination)
+		// For regular transactions, use editType (but not 'transfer')
+		const saveType = isNowTransfer ? oldTx.type : (editType === 'transfer' ? 'out' : editType);
 
 		await storage.updateTransaction(oldTx.id!, {
 			description: editDescription.trim(),
 			amount,
-			type: editType,
+			toAccountId: isNowTransfer ? toAccountId : undefined,
+			type: saveType,
 			accountId,
 			categoryId,
 			date: editDate
@@ -652,19 +698,31 @@
 				<select id="edit-tx-type" class="input" bind:value={editType}>
 					<option value="out">Outgoing (expense)</option>
 					<option value="in">Incoming (income)</option>
+					<option value="transfer">Transfer between accounts</option>
 				</select>
 			</div>
 		</div>
 
-		<div class="grid grid-cols-2 gap-4">
+		<div class="grid gap-4" class:grid-cols-2={editType !== 'transfer'} class:grid-cols-3={editType === 'transfer'}>
 			<div>
-				<label class="label" for="edit-tx-account">Account</label>
+				<label class="label" for="edit-tx-account">{editType === 'transfer' ? 'From Account' : 'Account'}</label>
 				<select id="edit-tx-account" class="input" bind:value={editAccountId}>
 					{#each $accounts as account}
 						<option value={account.id?.toString()}>{account.name}</option>
 					{/each}
 				</select>
 			</div>
+
+			{#if editType === 'transfer'}
+				<div>
+					<label class="label" for="edit-tx-to-account">To Account</label>
+					<select id="edit-tx-to-account" class="input" bind:value={editToAccountId}>
+						{#each $accounts.filter(a => a.id?.toString() !== editAccountId) as account}
+							<option value={account.id?.toString()}>{account.name}</option>
+						{/each}
+					</select>
+				</div>
+			{/if}
 
 			<div>
 				<label class="label" for="edit-tx-date">Date</label>

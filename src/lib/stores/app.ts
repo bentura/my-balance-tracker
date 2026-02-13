@@ -244,8 +244,9 @@ export const deleteRecurringItem = async (id: number): Promise<void> => {
 export const createTransaction = async (data: {
 	description: string;
 	amount: number;
-	type: 'in' | 'out';
+	type: 'in' | 'out' | 'transfer';
 	accountId: number;
+	toAccountId?: number;
 	categoryId?: number;
 	date: string;
 }): Promise<Transaction | null> => {
@@ -254,6 +255,63 @@ export const createTransaction = async (data: {
 	const today = new Date().toISOString().slice(0, 10);
 	const isFuture = data.date > today;
 
+	// Handle transfers specially - create two linked transactions
+	if (data.type === 'transfer' && data.toAccountId) {
+		const toAccount = await storage.getAccount(data.toAccountId);
+		const toAccountName = toAccount?.name ?? 'Unknown';
+		const fromAccount = await storage.getAccount(data.accountId);
+		const fromAccountName = fromAccount?.name ?? 'Unknown';
+
+		// Create outgoing transaction from source account
+		const outTx = await storage.createTransaction({
+			description: `${data.description} → ${toAccountName}`,
+			amount: data.amount,
+			type: 'out',
+			accountId: data.accountId,
+			toAccountId: data.toAccountId,
+			categoryId: data.categoryId,
+			date: data.date,
+			isApplied: !isFuture
+		});
+
+		// Create incoming transaction to destination account
+		const inTx = await storage.createTransaction({
+			description: `${data.description} ← ${fromAccountName}`,
+			amount: data.amount,
+			type: 'in',
+			accountId: data.toAccountId,
+			toAccountId: data.accountId, // Link back to source
+			categoryId: data.categoryId,
+			date: data.date,
+			isApplied: !isFuture,
+			linkedTransactionId: outTx?.id
+		});
+
+		// Update the outgoing transaction with the link
+		if (outTx?.id && inTx?.id) {
+			await storage.updateTransaction(outTx.id, { linkedTransactionId: inTx.id });
+		}
+
+		// If not future-dated, update both account balances
+		if (!isFuture) {
+			if (fromAccount) {
+				await storage.updateAccount(data.accountId, {
+					balance: fromAccount.balance - data.amount
+				});
+			}
+			if (toAccount) {
+				await storage.updateAccount(data.toAccountId, {
+					balance: toAccount.balance + data.amount
+				});
+			}
+		}
+
+		await refreshAll();
+		showFeedback(isFuture ? 'Upcoming transfer added' : 'Transfer complete');
+		return outTx;
+	}
+
+	// Regular transaction (in or out)
 	const tx = await storage.createTransaction({
 		...data,
 		isApplied: !isFuture

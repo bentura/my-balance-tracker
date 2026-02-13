@@ -1,6 +1,6 @@
 // Core data types for MBT
 
-export type TransactionType = 'in' | 'out';
+export type TransactionType = 'in' | 'out' | 'transfer';
 export type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export interface Account {
@@ -41,10 +41,12 @@ export interface Transaction {
 	amount: number;
 	type: TransactionType;
 	accountId: number;
+	toAccountId?: number;  // For transfers: destination account
 	categoryId?: number;
 	date: string;          // The date the transaction occurs/occurred
 	isApplied: boolean;    // Has this affected the balance yet?
 	recurringId?: number;  // If generated from a recurring item
+	linkedTransactionId?: number; // For transfers: links the two transactions together
 	createdAt: string;
 }
 

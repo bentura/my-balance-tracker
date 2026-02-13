@@ -29,6 +29,7 @@
 	let txAmount = $state('');
 	let txType = $state<TransactionType>('out');
 	let txAccountId = $state('');
+	let txToAccountId = $state('');
 	let txCategoryId = $state('');
 	let txDate = $state(new Date().toISOString().slice(0, 10));
 
@@ -50,6 +51,7 @@
 		txAmount = '';
 		txType = 'out';
 		txAccountId = $accounts[0]?.id?.toString() ?? '';
+		txToAccountId = $accounts[1]?.id?.toString() ?? '';
 		txCategoryId = '';
 		txDate = new Date().toISOString().slice(0, 10);
 		showAddTransaction = true;
@@ -58,6 +60,7 @@
 	const submitTransaction = async () => {
 		const amount = parseFloat(txAmount);
 		const accountId = parseInt(txAccountId, 10);
+		const toAccountId = txToAccountId ? parseInt(txToAccountId, 10) : undefined;
 		const categoryId = txCategoryId ? parseInt(txCategoryId, 10) : undefined;
 
 		if (!txDescription.trim()) {
@@ -72,12 +75,23 @@
 			showFeedback('Please select an account', 'error');
 			return;
 		}
+		if (txType === 'transfer') {
+			if (!toAccountId || isNaN(toAccountId)) {
+				showFeedback('Please select a destination account', 'error');
+				return;
+			}
+			if (accountId === toAccountId) {
+				showFeedback('From and To accounts must be different', 'error');
+				return;
+			}
+		}
 
 		await createTransaction({
 			description: txDescription.trim(),
 			amount,
 			type: txType,
 			accountId,
+			toAccountId: txType === 'transfer' ? toAccountId : undefined,
 			categoryId,
 			date: txDate
 		});
@@ -293,19 +307,31 @@
 				<select id="tx-type" class="input" bind:value={txType}>
 					<option value="out">Outgoing (expense)</option>
 					<option value="in">Incoming (income)</option>
+					<option value="transfer">Transfer between accounts</option>
 				</select>
 			</div>
 		</div>
 
-		<div class="grid grid-cols-2 gap-4">
+		<div class="grid gap-4" class:grid-cols-2={txType !== 'transfer'} class:grid-cols-3={txType === 'transfer'}>
 			<div>
-				<label class="label" for="tx-account">Account</label>
+				<label class="label" for="tx-account">{txType === 'transfer' ? 'From Account' : 'Account'}</label>
 				<select id="tx-account" class="input" bind:value={txAccountId}>
 					{#each $accounts as account}
 						<option value={account.id?.toString()}>{account.name}</option>
 					{/each}
 				</select>
 			</div>
+
+			{#if txType === 'transfer'}
+				<div>
+					<label class="label" for="tx-to-account">To Account</label>
+					<select id="tx-to-account" class="input" bind:value={txToAccountId}>
+						{#each $accounts.filter(a => a.id?.toString() !== txAccountId) as account}
+							<option value={account.id?.toString()}>{account.name}</option>
+						{/each}
+					</select>
+				</div>
+			{/if}
 
 			<div>
 				<label class="label" for="tx-date">Date</label>
