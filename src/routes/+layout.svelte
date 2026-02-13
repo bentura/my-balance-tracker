@@ -4,7 +4,7 @@
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { Navigation, Feedback } from '$lib/components';
-	import { initStore, isLoading, hasCompletedOnboarding, runDailyProcessing } from '$lib/stores';
+	import { initStore, isLoading, hasCompletedOnboarding, runDailyProcessing, checkAuth } from '$lib/stores';
 
 	let { children } = $props();
 
@@ -15,6 +15,9 @@
 	);
 
 	onMount(async () => {
+		// Check auth status
+		await checkAuth();
+		// Initialize local store
 		await initStore();
 		// Run daily processing on app load
 		await runDailyProcessing();

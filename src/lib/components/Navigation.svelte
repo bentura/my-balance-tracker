@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { currentUser, isLoggedIn, isPremium, logout } from '$lib/stores';
+	import { goto } from '$app/navigation';
 
 	let isOpen = $state(false);
 
@@ -9,6 +11,12 @@
 
 	const close = () => {
 		isOpen = false;
+	};
+
+	const handleLogout = async () => {
+		await logout();
+		close();
+		goto('/');
 	};
 
 	const links = [
@@ -58,7 +66,16 @@
 		<!-- Header -->
 		<div class="border-b border-slate/20 p-5">
 			<h2 class="font-serif text-xl font-semibold">MyBalanceTracker</h2>
-			<p class="text-sm text-slate">Menu</p>
+			{#if $isLoggedIn}
+				<p class="text-sm text-slate truncate">{$currentUser?.email}</p>
+				{#if $isPremium}
+					<span class="inline-block mt-1 rounded-full bg-moss/10 px-2 py-0.5 text-xs font-medium text-moss">
+						Pro
+					</span>
+				{/if}
+			{:else}
+				<p class="text-sm text-slate">Free (local only)</p>
+			{/if}
 		</div>
 
 		<!-- Links -->
@@ -78,15 +95,42 @@
 		</div>
 
 		<!-- Footer -->
-		<div class="border-t border-slate/20 p-4">
-			<a
-				href="/upgrade"
-				class="flex items-center justify-center gap-2 rounded-lg bg-moss px-4 py-2 text-sm font-semibold text-white hover:bg-moss/90"
-				onclick={close}
-			>
-				<span>⭐</span>
-				<span>Upgrade to Sync</span>
-			</a>
+		<div class="border-t border-slate/20 p-4 space-y-2">
+			{#if $isLoggedIn}
+				{#if !$isPremium}
+					<a
+						href="/upgrade"
+						class="flex items-center justify-center gap-2 rounded-lg bg-moss px-4 py-2 text-sm font-semibold text-white hover:bg-moss/90"
+						onclick={close}
+					>
+						<span>⭐</span>
+						<span>Upgrade to Pro</span>
+					</a>
+				{/if}
+				<button
+					class="w-full rounded-lg border border-slate/20 px-4 py-2 text-sm font-medium text-slate hover:bg-oat"
+					onclick={handleLogout}
+				>
+					Log Out
+				</button>
+			{:else}
+				<a
+					href="/login"
+					class="flex items-center justify-center gap-2 rounded-lg bg-moss px-4 py-2 text-sm font-semibold text-white hover:bg-moss/90"
+					onclick={close}
+				>
+					<span>👤</span>
+					<span>Log In / Sign Up</span>
+				</a>
+				<a
+					href="/upgrade"
+					class="flex items-center justify-center gap-2 rounded-lg border border-moss px-4 py-2 text-sm font-medium text-moss hover:bg-moss/10"
+					onclick={close}
+				>
+					<span>⭐</span>
+					<span>Upgrade to Pro</span>
+				</a>
+			{/if}
 		</div>
 	</div>
 </nav>
