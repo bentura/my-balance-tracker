@@ -14,6 +14,7 @@ export interface User {
 	stripe_customer_id: string | null;
 	subscription_status: string;
 	subscription_id: string | null;
+	is_admin: boolean;
 	created_at: Date;
 }
 
@@ -74,7 +75,7 @@ export async function createUser(email: string, password: string): Promise<User 
 
 export async function getUserByEmail(email: string): Promise<(User & { password_hash: string }) | null> {
 	const [user] = await sql<(User & { password_hash: string })[]>`
-		SELECT id, email, password_hash, stripe_customer_id, subscription_status, subscription_id, created_at
+		SELECT id, email, password_hash, stripe_customer_id, subscription_status, subscription_id, is_admin, created_at
 		FROM users
 		WHERE email = ${email.toLowerCase()}
 	`;
@@ -83,11 +84,19 @@ export async function getUserByEmail(email: string): Promise<(User & { password_
 
 export async function getUserById(id: number): Promise<User | null> {
 	const [user] = await sql<User[]>`
-		SELECT id, email, stripe_customer_id, subscription_status, subscription_id, created_at
+		SELECT id, email, stripe_customer_id, subscription_status, subscription_id, is_admin, created_at
 		FROM users
 		WHERE id = ${id}
 	`;
 	return user || null;
+}
+
+export async function setUserAdmin(userId: number, isAdmin: boolean): Promise<void> {
+	await sql`
+		UPDATE users
+		SET is_admin = ${isAdmin}, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ${userId}
+	`;
 }
 
 export async function updateUserSubscription(

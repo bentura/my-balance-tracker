@@ -1,14 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { sql } from '$lib/server/db';
-import { env } from '$env/dynamic/private';
+import { getUserFromRequest } from '$lib/server/auth';
 
-const ADMIN_SECRET = env.ADMIN_SECRET || 'mbt_admin_secret_2026';
-
-export const GET: RequestHandler = async ({ request }) => {
-	const authHeader = request.headers.get('Authorization');
+export const GET: RequestHandler = async ({ cookies }) => {
+	const user = await getUserFromRequest(cookies);
 	
-	if (authHeader !== `Bearer ${ADMIN_SECRET}`) {
+	if (!user || !user.is_admin) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
@@ -18,6 +16,7 @@ export const GET: RequestHandler = async ({ request }) => {
 			stripe_customer_id as "stripeCustomerId",
 			subscription_status as "subscriptionStatus",
 			subscription_id as "subscriptionId",
+			is_admin as "isAdmin",
 			created_at as "createdAt"
 		FROM users
 		ORDER BY created_at DESC

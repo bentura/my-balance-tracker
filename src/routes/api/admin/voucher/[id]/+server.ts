@@ -1,14 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { sql } from '$lib/server/db';
-import { env } from '$env/dynamic/private';
+import { getUserFromRequest } from '$lib/server/auth';
 
-const ADMIN_SECRET = env.ADMIN_SECRET || 'mbt_admin_secret_2026';
-
-export const PATCH: RequestHandler = async ({ params, request }) => {
-	const authHeader = request.headers.get('Authorization');
+export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
+	const user = await getUserFromRequest(cookies);
 	
-	if (authHeader !== `Bearer ${ADMIN_SECRET}`) {
+	if (!user || !user.is_admin) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
@@ -24,10 +22,10 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 	return json({ success: true });
 };
 
-export const DELETE: RequestHandler = async ({ params, request }) => {
-	const authHeader = request.headers.get('Authorization');
+export const DELETE: RequestHandler = async ({ params, cookies }) => {
+	const user = await getUserFromRequest(cookies);
 	
-	if (authHeader !== `Bearer ${ADMIN_SECRET}`) {
+	if (!user || !user.is_admin) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 

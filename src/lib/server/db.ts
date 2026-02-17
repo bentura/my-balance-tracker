@@ -13,9 +13,20 @@ export async function initDb() {
 			stripe_customer_id VARCHAR(255),
 			subscription_status VARCHAR(50) DEFAULT 'free',
 			subscription_id VARCHAR(255),
+			is_admin BOOLEAN DEFAULT false,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)
+	`;
+
+	// Add is_admin column if it doesn't exist (for existing databases)
+	await sql`
+		DO $$ 
+		BEGIN 
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'is_admin') THEN
+				ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT false;
+			END IF;
+		END $$;
 	`;
 
 	await sql`

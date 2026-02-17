@@ -1,20 +1,17 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { sql } from '$lib/server/db';
-import { env } from '$env/dynamic/private';
 import { serverFeatures } from '$lib/server/config';
+import { getUserFromRequest } from '$lib/server/auth';
 
-// Simple admin auth via secret key
-const ADMIN_SECRET = env.ADMIN_SECRET || 'mbt_admin_secret_2026';
-
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, cookies }) => {
 	if (!serverFeatures.vouchers) {
 		return json({ error: 'Not available in standalone mode' }, { status: 404 });
 	}
 
-	const authHeader = request.headers.get('Authorization');
+	const user = await getUserFromRequest(cookies);
 	
-	if (authHeader !== `Bearer ${ADMIN_SECRET}`) {
+	if (!user || !user.is_admin) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
@@ -49,14 +46,14 @@ export const POST: RequestHandler = async ({ request }) => {
 };
 
 // GET - List all vouchers (admin only)
-export const GET: RequestHandler = async ({ request }) => {
+export const GET: RequestHandler = async ({ cookies }) => {
 	if (!serverFeatures.vouchers) {
 		return json({ error: 'Not available in standalone mode' }, { status: 404 });
 	}
 
-	const authHeader = request.headers.get('Authorization');
+	const user = await getUserFromRequest(cookies);
 	
-	if (authHeader !== `Bearer ${ADMIN_SECRET}`) {
+	if (!user || !user.is_admin) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 

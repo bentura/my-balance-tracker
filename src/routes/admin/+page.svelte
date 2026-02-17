@@ -4,8 +4,7 @@
 	import { Modal } from '$lib/components';
 
 	let authenticated = $state(false);
-	let adminSecret = $state('');
-	let authError = $state('');
+	let adminEmail = $state('');
 	let loading = $state(true);
 
 	// Data
@@ -21,51 +20,29 @@
 	// Tab
 	let activeTab = $state<'stats' | 'users' | 'vouchers'>('stats');
 
-	onMount(() => {
-		// Check if admin secret is stored
-		const stored = localStorage.getItem('mbt_admin_secret');
-		if (stored) {
-			adminSecret = stored;
-			authenticate();
-		} else {
-			loading = false;
+	onMount(async () => {
+		// Check if user is logged in and is admin
+		try {
+			const res = await fetch('/api/admin/auth');
+			if (res.ok) {
+				const data = await res.json();
+				authenticated = true;
+				adminEmail = data.email;
+				await loadData();
+			} else {
+				authenticated = false;
+			}
+		} catch {
+			authenticated = false;
 		}
+		loading = false;
 	});
 
-	const authenticate = async () => {
-		loading = true;
-		authError = '';
-
-		try {
-			const res = await fetch('/api/admin/stats', {
-				headers: { 'Authorization': `Bearer ${adminSecret}` }
-			});
-
-			if (!res.ok) {
-				authError = 'Invalid admin secret';
-				localStorage.removeItem('mbt_admin_secret');
-				authenticated = false;
-				loading = false;
-				return;
-			}
-
-			localStorage.setItem('mbt_admin_secret', adminSecret);
-			authenticated = true;
-			await loadData();
-		} catch {
-			authError = 'Connection error';
-		} finally {
-			loading = false;
-		}
-	};
-
 	const loadData = async () => {
-		const headers = { 'Authorization': `Bearer ${adminSecret}` };
-
 		const [statsRes, usersRes, vouchersRes] = await Promise.all([
-			fetch('/api/admin/stats', { headers }),
-			fetch('/api/admin/users', { headers }),
-			fetch('/api/voucher/create', { headers })
+			fetch('/api/admin/stats'),
+			fetch('/api/admin/users'),
+			fetch('/api/voucher/create')
 		]);
 
 		if (statsRes.ok) stats = await statsRes.json();
@@ -83,10 +60,7 @@
 
 		const res = await fetch('/api/voucher/create', {
 			method: 'POST',
-			headers: {
-				'Authorization': `Bearer ${adminSecret}`,
-				'Content-Type': 'application/json'
-			},
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(newVoucher)
 		});
 
@@ -105,10 +79,7 @@
 	const toggleVoucher = async (id: number, isActive: boolean) => {
 		await fetch('/api/admin/voucher/' + id, {
 			method: 'PATCH',
-			headers: {
-				'Authorization': `Bearer ${adminSecret}`,
-				'Content-Type': 'application/json'
-			},
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ isActive: !isActive })
 		});
 		await loadData();
@@ -118,19 +89,19 @@
 		const newStatus = currentStatus === 'active' ? 'free' : 'active';
 		await fetch('/api/admin/users/' + userId, {
 			method: 'PATCH',
-			headers: {
-				'Authorization': `Bearer ${adminSecret}`,
-				'Content-Type': 'application/json'
-			},
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ subscriptionStatus: newStatus })
 		});
 		await loadData();
 	};
 
-	const logout = () => {
-		localStorage.removeItem('mbt_admin_secret');
-		authenticated = false;
-		adminSecret = '';
+	const toggleUserAdmin = async (userId: number, currentIsAdmin: boolean) => {
+		await fetch('/api/admin/users/' + userId, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ isAdmin: !currentIsAdmin })
+		});
+		await loadData();
 	};
 
 	const formatDate = (dateStr: string) => {
@@ -150,7 +121,7 @@
 		<div class="mb-6 flex items-center justify-between">
 			<h1 class="font-serif text-2xl font-semibold">Admin Dashboard</h1>
 			{#if authenticated}
-				<button class="text-sm text-slate hover:text-ink" onclick={logout}>Log out</button>
+				<span class="text-sm text-slate">{adminEmail}</span>
 			{/if}
 		</div>
 
@@ -159,27 +130,11 @@
 				<p class="text-slate">Loading...</p>
 			</div>
 		{:else if !authenticated}
-			<!-- Login -->
-			<div class="card mx-auto max-w-sm">
-				<h2 class="mb-4 text-lg font-semibold">Admin Login</h2>
-				<form onsubmit={(e) => { e.preventDefault(); authenticate(); }}>
-					<div class="space-y-4">
-						<div>
-							<label class="label" for="secret">Admin Secret</label>
-							<input
-								id="secret"
-								type="password"
-								class="input"
-								bind:value={adminSecret}
-								placeholder="Enter admin secret"
-							/>
-						</div>
-						{#if authError}
-							<p class="text-sm text-red-600">{authError}</p>
-						{/if}
-						<button type="submit" class="button w-full">Login</button>
-					</div>
-				</form>
+			<!-- Not logged in or not admin -->
+			<div class="card mx-auto max-w-sm text-center">
+				<h2 class="mb-4 text-lg font-semibold">Admin Access Required</h2>
+				<p class="mb-4 text-slate">You need to be logged in with an admin account to access this page.</p>
+				<a href="/login" class="button inline-block">Log In</a>
 			</div>
 		{:else}
 			<!-- Tabs -->
@@ -239,7 +194,7 @@
 							<tr class="border-b text-left">
 								<th class="pb-2">Email</th>
 								<th class="pb-2">Status</th>
-								<th class="pb-2">Stripe</th>
+								<th class="pb-2">Admin</th>
 								<th class="pb-2">Joined</th>
 								<th class="pb-2">Actions</th>
 							</tr>
@@ -260,19 +215,25 @@
 										</span>
 									</td>
 									<td class="py-2">
-										{#if user.stripeCustomerId}
-											<span class="text-xs text-slate">{user.stripeCustomerId.slice(-8)}</span>
+										{#if user.isAdmin}
+											<span class="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">Admin</span>
 										{:else}
 											<span class="text-xs text-slate">-</span>
 										{/if}
 									</td>
 									<td class="py-2 text-slate">{formatDate(user.createdAt)}</td>
-									<td class="py-2">
+									<td class="py-2 space-x-2">
 										<button
 											class="text-xs text-moss hover:underline"
 											onclick={() => toggleUserPro(user.id, user.subscriptionStatus)}
 										>
 											{user.subscriptionStatus === 'active' ? 'Revoke Pro' : 'Grant Pro'}
+										</button>
+										<button
+											class="text-xs text-purple-600 hover:underline"
+											onclick={() => toggleUserAdmin(user.id, user.isAdmin)}
+										>
+											{user.isAdmin ? 'Remove Admin' : 'Make Admin'}
 										</button>
 									</td>
 								</tr>
