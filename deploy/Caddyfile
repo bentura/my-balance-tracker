@@ -1,0 +1,13 @@
+# MBT Shared Caddyfile
+# Handles both UAT and Production environments
+
+# UAT
+uat.mybalancetracker.co.uk {
+    reverse_proxy mbt-uat:3000
+}
+
+# Production
+mybalancetracker.co.uk, www.mybalancetracker.co.uk,
+mybalancetracker.com, www.mybalancetracker.com {
+    reverse_proxy mbt-prod:3000
+}

@@ -1,0 +1,42 @@
+# MBT Local Development
+# Run from repo root: docker compose -f deploy/docker-compose.local.yml up
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: mbt-local-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mbt
+      POSTGRES_PASSWORD: mbt_local_2026
+      POSTGRES_DB: mbt
+    ports:
+      - "5434:5432"
+    volumes:
+      - mbt_local_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mbt"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: ..
+    container_name: mbt-local
+    restart: unless-stopped
+    ports:
+      - "8086:3000"
+    environment:
+      - DATABASE_URL=postgresql://mbt:mbt_local_2026@db:5432/mbt
+      - JWT_SECRET=mbt_jwt_local_2026
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - PUBLIC_APP_URL=http://localhost:8086
+      - PUBLIC_STRIPE_PUBLISHABLE_KEY=${PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+      - ADMIN_SECRET=mbt_admin_local_2026
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mbt_local_postgres:

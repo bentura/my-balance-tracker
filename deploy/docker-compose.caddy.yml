@@ -1,0 +1,25 @@
+# Shared Caddy reverse proxy
+# Run from /opt/mbt/
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: mbt-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - mbt-network
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  mbt-network:
+    name: mbt-network

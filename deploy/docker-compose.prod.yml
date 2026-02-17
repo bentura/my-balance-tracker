@@ -1,0 +1,48 @@
+# MBT Production Environment
+# Run from /opt/mbt/prod/
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: mbt-prod-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mbt
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: mbt
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mbt"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mbt-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mbt-prod
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://mbt:${DB_PASSWORD}@mbt-prod-db:5432/mbt
+      - JWT_SECRET=${JWT_SECRET}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - PUBLIC_APP_URL=https://mybalancetracker.co.uk
+      - PUBLIC_STRIPE_PUBLISHABLE_KEY=${PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      - ADMIN_SECRET=${ADMIN_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - mbt-network
+
+volumes:
+  postgres_data:
+
+networks:
+  mbt-network:
+    external: true
