@@ -7,6 +7,7 @@ import { sql } from '$lib/server/db';
 const n = (val: any) => val === undefined ? null : val;
 
 // GET - Fetch all user data for syncing to client
+// Note: We allow users with lapsed subscriptions to download their data
 export const GET: RequestHandler = async ({ cookies }) => {
 	const user = await getUserFromRequest(cookies);
 	
@@ -14,8 +15,9 @@ export const GET: RequestHandler = async ({ cookies }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	if (user.subscription_status !== 'active') {
-		return json({ error: 'Premium subscription required' }, { status: 403 });
+	// Allow data download for active, cancelled, or past_due users (not 'free' who never subscribed)
+	if (user.subscription_status === 'free') {
+		return json({ error: 'No cloud data available' }, { status: 403 });
 	}
 
 	const [accounts, categories, recurringItems, transactions, settings] = await Promise.all([

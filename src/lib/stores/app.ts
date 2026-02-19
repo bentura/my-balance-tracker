@@ -185,6 +185,55 @@ export const clearLocalStorage = async (): Promise<void> => {
 	console.log('[MBT] Cleared local storage');
 };
 
+// Download cloud data to local storage (used when subscription lapses)
+export const downloadCloudDataToLocal = async (): Promise<boolean> => {
+	if (!browser) return false;
+	
+	try {
+		// Fetch data from server (uses auth cookie)
+		const res = await fetch('/api/sync');
+		if (!res.ok) {
+			console.error('[MBT] Failed to fetch cloud data');
+			return false;
+		}
+		
+		const cloudData = await res.json();
+		
+		// Import to local IndexedDB
+		const localAdapter = new DexieAdapter();
+		await localAdapter.init();
+		
+		// Transform server data format to export format
+		const exportData = {
+			version: 1,
+			exportedAt: new Date().toISOString(),
+			accounts: cloudData.accounts || [],
+			categories: cloudData.categories || [],
+			recurringItems: cloudData.recurringItems || [],
+			transactions: cloudData.transactions || [],
+			settings: {
+				hasCompletedOnboarding: true,
+				defaultCurrency: cloudData.settings?.default_currency || 'GBP',
+				projectionDays: cloudData.settings?.projection_days || 30,
+				lastDailyRun: cloudData.settings?.last_daily_run || null
+			}
+		};
+		
+		await localAdapter.importData(exportData);
+		
+		// Switch to local storage
+		storage = localAdapter;
+		storageMode.set('local');
+		await refreshAll();
+		
+		console.log('[MBT] Cloud data downloaded to local storage');
+		return true;
+	} catch (error) {
+		console.error('[MBT] Error downloading cloud data:', error);
+		return false;
+	}
+};
+
 // Switch back to local storage (e.g., after logout)
 export const switchToLocalStorage = async (): Promise<void> => {
 	if (!browser) return;

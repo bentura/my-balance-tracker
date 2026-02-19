@@ -16,6 +16,20 @@ export const isLoggedIn = derived(currentUser, $user => $user !== null);
 export const isPremium = derived(currentUser, $user => $user?.subscription_status === 'active');
 export const isAdmin = derived(currentUser, $user => $user?.is_admin === true);
 
+// Track if user was previously premium (for downgrade detection)
+export const wasPremium = writable(false);
+export const showDataRecoveryPrompt = writable(false);
+
+// Derived: user is logged in, was premium, but subscription lapsed
+export const isDowngraded = derived(
+	[currentUser, wasPremium],
+	([$user, $wasPremium]) => {
+		if (!$user) return false;
+		const notActive = $user.subscription_status !== 'active';
+		return $wasPremium && notActive;
+	}
+);
+
 // Check auth status on load
 export async function checkAuth(): Promise<User | null> {
 	if (!browser) return null;

@@ -3,8 +3,10 @@
 	import { page } from '$app/stores';
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
-	import { Navigation, Feedback } from '$lib/components';
-	import { initStore, isLoading, hasCompletedOnboarding, runDailyProcessing, checkAuth, initConfig } from '$lib/stores';
+	import { Navigation, Feedback, DataRecoveryPrompt } from '$lib/components';
+	import { initStore, isLoading, hasCompletedOnboarding, runDailyProcessing, checkAuth, initConfig, isPremium } from '$lib/stores';
+	import { wasPremium, showDataRecoveryPrompt } from '$lib/stores/auth';
+	import { get } from 'svelte/store';
 
 	let { children, data } = $props();
 
@@ -23,7 +25,27 @@
 
 	onMount(async () => {
 		// Check auth status
-		await checkAuth();
+		const user = await checkAuth();
+		
+		// Track if user is currently premium (for downgrade detection later)
+		if (user?.subscription_status === 'active') {
+			wasPremium.set(true);
+		}
+		
+		// Check for downgrade: user was premium before but isn't now
+		// We store this in localStorage to persist across sessions
+		const wasProBefore = localStorage.getItem('mbt_was_pro') === 'true';
+		if (wasProBefore && user && user.subscription_status !== 'active') {
+			// User has downgraded - show recovery prompt
+			showDataRecoveryPrompt.set(true);
+			localStorage.removeItem('mbt_was_pro');
+		}
+		
+		// If currently premium, mark it for future downgrade detection
+		if (user?.subscription_status === 'active') {
+			localStorage.setItem('mbt_was_pro', 'true');
+		}
+		
 		// Initialize local store
 		await initStore();
 		// Run daily processing on app load
@@ -58,4 +80,5 @@
 	</div>
 
 	<Feedback />
+	<DataRecoveryPrompt />
 {/if}
