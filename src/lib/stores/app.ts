@@ -175,6 +175,16 @@ export const switchToApiStorage = async (): Promise<void> => {
 	console.log('[MBT] Switched to API storage');
 };
 
+// Clear local IndexedDB storage (used after syncing to cloud)
+export const clearLocalStorage = async (): Promise<void> => {
+	if (!browser) return;
+	
+	const localAdapter = new DexieAdapter();
+	await localAdapter.init();
+	await localAdapter.clearAll();
+	console.log('[MBT] Cleared local storage');
+};
+
 // Switch back to local storage (e.g., after logout)
 export const switchToLocalStorage = async (): Promise<void> => {
 	if (!browser) return;
