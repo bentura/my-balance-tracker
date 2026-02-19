@@ -4,6 +4,59 @@ import { sql } from '$lib/server/db';
 import { getUserFromRequest } from '$lib/server/auth';
 import { stripe } from '$lib/server/stripe';
 
+export const DELETE: RequestHandler = async ({ params, cookies }) => {
+	const user = await getUserFromRequest(cookies);
+	
+	if (!user || !user.is_admin) {
+		return json({ error: 'Unauthorized' }, { status: 401 });
+	}
+
+	const userId = parseInt(params.id, 10);
+
+	// Prevent deleting yourself
+	if (userId === user.id) {
+		return json({ error: 'Cannot delete your own account' }, { status: 400 });
+	}
+
+	// Get target user
+	const [targetUser] = await sql`SELECT * FROM users WHERE id = ${userId}`;
+	if (!targetUser) {
+		return json({ error: 'User not found' }, { status: 404 });
+	}
+
+	// Delete from Stripe if customer exists
+	if (targetUser.stripe_customer_id) {
+		try {
+			// Cancel any active subscriptions first
+			const subscriptions = await stripe.instance.subscriptions.list({
+				customer: targetUser.stripe_customer_id,
+				status: 'active'
+			});
+			
+			for (const sub of subscriptions.data) {
+				await stripe.instance.subscriptions.cancel(sub.id);
+			}
+
+			// Delete the customer (this also removes payment methods, etc.)
+			await stripe.instance.customers.del(targetUser.stripe_customer_id);
+		} catch (err: any) {
+			// Log but continue - customer might already be deleted in Stripe
+			console.error('Stripe deletion error:', err.message);
+		}
+	}
+
+	// Delete user data from our database (cascade should handle related records)
+	// Delete in order: settings, accounts/transactions, then user
+	await sql`DELETE FROM user_settings WHERE user_id = ${userId}`;
+	await sql`DELETE FROM transactions WHERE user_id = ${userId}`;
+	await sql`DELETE FROM accounts WHERE user_id = ${userId}`;
+	await sql`DELETE FROM recurring_items WHERE user_id = ${userId}`;
+	await sql`DELETE FROM categories WHERE user_id = ${userId}`;
+	await sql`DELETE FROM users WHERE id = ${userId}`;
+
+	return json({ success: true, message: 'User deleted' });
+};
+
 export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 	const user = await getUserFromRequest(cookies);
 	

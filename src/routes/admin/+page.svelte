@@ -104,6 +104,23 @@
 		await loadData();
 	};
 
+	const deleteUser = async (userId: number, email: string) => {
+		if (!confirm(`Are you sure you want to delete ${email}?\n\nThis will:\n- Delete their account and all data\n- Cancel any Stripe subscriptions\n- Delete their Stripe customer record\n\nThis cannot be undone.`)) {
+			return;
+		}
+
+		const res = await fetch('/api/admin/users/' + userId, {
+			method: 'DELETE'
+		});
+
+		if (res.ok) {
+			await loadData();
+		} else {
+			const data = await res.json();
+			alert(data.error || 'Failed to delete user');
+		}
+	};
+
 	const formatDate = (dateStr: string) => {
 		if (!dateStr) return '-';
 		return new Date(dateStr).toLocaleDateString('en-GB', {
@@ -234,6 +251,12 @@
 											onclick={() => toggleUserAdmin(user.id, user.isAdmin)}
 										>
 											{user.isAdmin ? 'Remove Admin' : 'Make Admin'}
+										</button>
+										<button
+											class="text-xs text-red-600 hover:underline"
+											onclick={() => deleteUser(user.id, user.email)}
+										>
+											Delete
 										</button>
 									</td>
 								</tr>
