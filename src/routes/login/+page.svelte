@@ -32,11 +32,9 @@
 		try {
 			const success = await authenticateWithBiometric();
 			if (success) {
-				// Refresh auth state
+				// Refresh auth state and reinitialize store
 				await checkAuth();
-				if (get(isPremium)) {
-					await switchToApiStorage();
-				}
+				await initStore();
 				goto('/dashboard');
 			} else {
 				error = 'Biometric authentication failed. Please use your password.';
@@ -76,10 +74,9 @@
 		loading = false;
 
 		if (result.success) {
-			// If user is premium, switch to API storage before navigating
-			if (get(isPremium)) {
-				await switchToApiStorage();
-			}
+			// Reinitialize store with correct storage adapter (API for premium, local for free)
+			await initStore();
+			
 			// Redirect admins to admin panel, others to dashboard
 			if (get(isAdmin)) {
 				goto('/admin');

@@ -17,7 +17,18 @@ export const GET: RequestHandler = async ({ cookies }) => {
 		WHERE user_id = ${user.id}
 	`;
 
-	return json(settings || { defaultCurrency: 'GBP', projectionDays: 30 });
+	// Check if user has any accounts (indicates onboarding complete)
+	const [accountCheck] = await sql`
+		SELECT COUNT(*) as count FROM accounts WHERE user_id = ${user.id}
+	`;
+	const hasCompletedOnboarding = (accountCheck?.count || 0) > 0;
+
+	return json({
+		defaultCurrency: settings?.defaultCurrency || 'GBP',
+		projectionDays: settings?.projectionDays || 30,
+		lastDailyRun: settings?.lastDailyRun || null,
+		hasCompletedOnboarding
+	});
 };
 
 // PATCH - Update settings
