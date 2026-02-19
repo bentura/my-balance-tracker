@@ -115,25 +115,16 @@
 					>
 						Log Out
 					</button>
-				{:else}
+				{:else if $features.showUpgradePrompts}
+					<!-- Free users only see upgrade option, no login button -->
 					<a
-						href="/login"
+						href="/upgrade"
 						class="flex items-center justify-center gap-2 rounded-lg bg-moss px-4 py-2 text-sm font-semibold text-white hover:bg-moss/90"
 						onclick={close}
 					>
-						<span>👤</span>
-						<span>Log In / Sign Up</span>
+						<span>⭐</span>
+						<span>Upgrade to Pro</span>
 					</a>
-					{#if $features.showUpgradePrompts}
-						<a
-							href="/upgrade"
-							class="flex items-center justify-center gap-2 rounded-lg border border-moss px-4 py-2 text-sm font-medium text-moss hover:bg-moss/10"
-							onclick={close}
-						>
-							<span>⭐</span>
-							<span>Upgrade to Pro</span>
-						</a>
-					{/if}
 				{/if}
 			{/if}
 		</div>

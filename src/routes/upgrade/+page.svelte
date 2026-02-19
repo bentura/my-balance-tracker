@@ -11,7 +11,7 @@
 
 	const redeemVoucher = async () => {
 		if (!$isLoggedIn) {
-			goto('/login');
+			goto('/register');
 			return;
 		}
 
@@ -56,7 +56,7 @@
 
 	const handleUpgrade = async () => {
 		if (!$isLoggedIn) {
-			goto('/login');
+			goto('/register');
 			return;
 		}
 
@@ -177,12 +177,6 @@
 						Sign up to Subscribe
 					{/if}
 				</button>
-
-				{#if !$isLoggedIn}
-					<p class="mt-3 text-center text-sm text-slate">
-						Already have an account? <a href="/login" class="text-moss hover:underline">Log in</a>
-					</p>
-				{/if}
 			</div>
 
 			<!-- Voucher code section -->
