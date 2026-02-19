@@ -7,14 +7,21 @@
 	let syncing = $state(false);
 	let syncComplete = $state(false);
 	let error = $state('');
+	let waitingForWebhook = $state(false);
 
 	onMount(async () => {
-		// Refresh user status to get updated subscription
-		await checkAuth();
-
-		// If they have premium, sync local data then switch to API storage
-		if ($isPremium) {
+		// Check if we came from Stripe checkout (has session_id in URL)
+		const sessionId = $page.url.searchParams.get('session_id');
+		
+		if (sessionId) {
+			// We came from Stripe - sync data and wait for webhook to update status
 			await syncLocalData();
+		} else {
+			// Direct visit - check if already premium
+			await checkAuth();
+			if ($isPremium) {
+				syncComplete = true;
+			}
 		}
 	});
 
@@ -36,8 +43,11 @@
 					data.transactions?.length > 0;
 
 				if (hasData) {
-					// Upload to server
-					const res = await fetch('/api/sync', {
+					// Upload to server (include session_id so sync works even if webhook is delayed)
+					const sessionId = $page.url.searchParams.get('session_id');
+					const syncUrl = sessionId ? `/api/sync?session_id=${sessionId}` : '/api/sync';
+					
+					const res = await fetch(syncUrl, {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
 						body: localData

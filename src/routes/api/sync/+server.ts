@@ -38,14 +38,36 @@ export const GET: RequestHandler = async ({ cookies }) => {
 };
 
 // POST - Upload local data to server (initial sync when upgrading)
-export const POST: RequestHandler = async ({ request, cookies }) => {
+export const POST: RequestHandler = async ({ request, cookies, url }) => {
 	const user = await getUserFromRequest(cookies);
 	
 	if (!user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	if (user.subscription_status !== 'active') {
+	// Allow sync if user is active OR if they have a valid Stripe session (webhook pending)
+	const sessionId = url.searchParams.get('session_id');
+	let allowSync = user.subscription_status === 'active';
+	
+	if (!allowSync && sessionId) {
+		// Verify the Stripe session is valid and paid
+		try {
+			const { stripe } = await import('$lib/server/stripe');
+			const session = await stripe.instance.checkout.sessions.retrieve(sessionId);
+			if (session.payment_status === 'paid' && session.metadata?.userId === user.id.toString()) {
+				allowSync = true;
+				// Also update user status since webhook might be delayed
+				await sql`UPDATE users SET subscription_status = 'active', 
+					stripe_customer_id = ${session.customer as string},
+					subscription_id = ${session.subscription as string}
+					WHERE id = ${user.id}`;
+			}
+		} catch (e) {
+			console.error('[Sync] Failed to verify Stripe session:', e);
+		}
+	}
+
+	if (!allowSync) {
 		return json({ error: 'Premium subscription required' }, { status: 403 });
 	}
 
