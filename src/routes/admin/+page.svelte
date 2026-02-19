@@ -122,25 +122,16 @@
 	};
 
 	const resetUserPassword = async (userId: number, email: string) => {
-		const newPassword = prompt(`Enter new password for ${email}:\n(minimum 8 characters)`);
-		
-		if (!newPassword) return;
-		
-		if (newPassword.length < 8) {
-			alert('Password must be at least 8 characters');
+		if (!confirm(`Reset password for ${email}?\n\nA new password will be generated and emailed to them.`)) {
 			return;
 		}
 
-		const notifyUser = confirm('Send email notification to user with new password?');
-
-		const res = await fetch('/api/admin/users/' + userId, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ newPassword, notifyUser })
+		const res = await fetch('/api/admin/users/' + userId + '/reset-password', {
+			method: 'POST'
 		});
 
 		if (res.ok) {
-			alert('Password reset successfully' + (notifyUser ? ' - email sent' : ''));
+			alert('Password reset and emailed to user');
 		} else {
 			const data = await res.json();
 			alert(data.error || 'Failed to reset password');
