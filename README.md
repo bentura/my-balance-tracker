@@ -1,3 +1,5 @@
+# THIS IS STILL IN EARLY DEVELOPMENT.  DO NOT USE.
+
 # MyBalanceTracker (MBT)
 
 Autism-friendly personal finance tracker. Simple, low-cognitive-load design.
