@@ -137,6 +137,13 @@
 							autocomplete={mode === 'login' ? 'current-password' : 'new-password'}
 							required
 						/>
+						{#if mode === 'login'}
+							<div class="mt-1 text-right">
+								<a href="/forgot-password" class="text-xs text-moss hover:underline">
+									Forgot password?
+								</a>
+							</div>
+						{/if}
 					</div>
 
 					{#if mode === 'register'}

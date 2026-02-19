@@ -121,6 +121,32 @@
 		}
 	};
 
+	const resetUserPassword = async (userId: number, email: string) => {
+		const newPassword = prompt(`Enter new password for ${email}:\n(minimum 8 characters)`);
+		
+		if (!newPassword) return;
+		
+		if (newPassword.length < 8) {
+			alert('Password must be at least 8 characters');
+			return;
+		}
+
+		const notifyUser = confirm('Send email notification to user with new password?');
+
+		const res = await fetch('/api/admin/users/' + userId, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ newPassword, notifyUser })
+		});
+
+		if (res.ok) {
+			alert('Password reset successfully' + (notifyUser ? ' - email sent' : ''));
+		} else {
+			const data = await res.json();
+			alert(data.error || 'Failed to reset password');
+		}
+	};
+
 	const formatDate = (dateStr: string) => {
 		if (!dateStr) return '-';
 		return new Date(dateStr).toLocaleDateString('en-GB', {
@@ -251,6 +277,12 @@
 											onclick={() => toggleUserAdmin(user.id, user.isAdmin)}
 										>
 											{user.isAdmin ? 'Remove Admin' : 'Make Admin'}
+										</button>
+										<button
+											class="text-xs text-blue-600 hover:underline"
+											onclick={() => resetUserPassword(user.id, user.email)}
+										>
+											Reset PW
 										</button>
 										<button
 											class="text-xs text-red-600 hover:underline"

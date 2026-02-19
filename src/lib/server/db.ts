@@ -29,6 +29,17 @@ export async function initDb() {
 		END $$;
 	`;
 
+	// Add password reset columns
+	await sql`
+		DO $$ 
+		BEGIN 
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'reset_token') THEN
+				ALTER TABLE users ADD COLUMN reset_token VARCHAR(255);
+				ALTER TABLE users ADD COLUMN reset_token_expires TIMESTAMP;
+			END IF;
+		END $$;
+	`;
+
 	await sql`
 		CREATE TABLE IF NOT EXISTS sessions (
 			id SERIAL PRIMARY KEY,

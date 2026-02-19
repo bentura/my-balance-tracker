@@ -146,3 +146,59 @@ export async function getUserFromRequest(cookies: { get: (name: string) => strin
 	
 	return getUserById(payload.userId);
 }
+
+// Password reset tokens
+import crypto from 'crypto';
+
+export function generateResetToken(): string {
+	return crypto.randomBytes(32).toString('hex');
+}
+
+export async function createPasswordResetToken(email: string): Promise<string | null> {
+	const user = await getUserByEmail(email);
+	if (!user) return null;
+
+	const token = generateResetToken();
+	const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+	await sql`
+		UPDATE users
+		SET reset_token = ${token}, reset_token_expires = ${expiresAt}, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ${user.id}
+	`;
+
+	return token;
+}
+
+export async function validateResetToken(token: string): Promise<User | null> {
+	const [user] = await sql<User[]>`
+		SELECT id, email, stripe_customer_id, subscription_status, subscription_id, is_admin, created_at
+		FROM users
+		WHERE reset_token = ${token} AND reset_token_expires > CURRENT_TIMESTAMP
+	`;
+	return user || null;
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<boolean> {
+	const user = await validateResetToken(token);
+	if (!user) return false;
+
+	const passwordHash = await hashPassword(newPassword);
+
+	await sql`
+		UPDATE users
+		SET password_hash = ${passwordHash}, reset_token = NULL, reset_token_expires = NULL, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ${user.id}
+	`;
+
+	return true;
+}
+
+export async function updateUserPassword(userId: number, newPassword: string): Promise<void> {
+	const passwordHash = await hashPassword(newPassword);
+	await sql`
+		UPDATE users
+		SET password_hash = ${passwordHash}, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ${userId}
+	`;
+}

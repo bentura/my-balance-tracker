@@ -1,8 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { sql } from '$lib/server/db';
-import { getUserFromRequest } from '$lib/server/auth';
+import { getUserFromRequest, updateUserPassword } from '$lib/server/auth';
 import { stripe } from '$lib/server/stripe';
+import { sendEmail } from '$lib/server/email';
 
 export const DELETE: RequestHandler = async ({ params, cookies }) => {
 	const user = await getUserFromRequest(cookies);
@@ -107,6 +108,29 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
 			SET is_admin = ${body.isAdmin}, updated_at = CURRENT_TIMESTAMP
 			WHERE id = ${userId}
 		`;
+	}
+
+	// Handle password reset by admin
+	if (body.newPassword !== undefined) {
+		if (body.newPassword.length < 8) {
+			return json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+		}
+
+		await updateUserPassword(userId, body.newPassword);
+
+		// Optionally send email notification
+		if (body.notifyUser) {
+			await sendEmail({
+				to: targetUser.email,
+				subject: 'Your MyBalanceTracker password has been reset',
+				text: `Your password has been reset by an administrator.\n\nYour new password is: ${body.newPassword}\n\nPlease log in and change it to something only you know.`,
+				html: `
+					<p>Your password has been reset by an administrator.</p>
+					<p>Your new password is: <strong>${body.newPassword}</strong></p>
+					<p>Please log in and change it to something only you know.</p>
+				`
+			});
+		}
 	}
 
 	return json({ success: true });
