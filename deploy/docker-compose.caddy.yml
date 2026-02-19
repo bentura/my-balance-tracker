@@ -22,4 +22,4 @@ volumes:
 
 networks:
   mbt-network:
-    name: mbt-network
+    external: true
