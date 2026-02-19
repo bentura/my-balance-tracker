@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { checkAuth, currentUser, isPremium, exportData, switchToApiStorage, clearLocalStorage } from '$lib/stores';
+	import { checkAuth, currentUser, isPremium, switchToApiStorage, clearLocalStorage } from '$lib/stores';
+	import { DexieAdapter } from '$lib/storage';
 	import { page } from '$app/stores';
 
 	let syncing = $state(false);
 	let syncComplete = $state(false);
 	let error = $state('');
-	let waitingForWebhook = $state(false);
 
 	onMount(async () => {
 		// Check if we came from Stripe checkout (has session_id in URL)
@@ -30,36 +30,44 @@
 		error = '';
 
 		try {
-			// Export local data
-			const localData = await exportData();
+			// IMPORTANT: Export directly from local IndexedDB, not the current storage adapter
+			// (which might already be ApiAdapter if user was logged in)
+			const localAdapter = new DexieAdapter();
+			await localAdapter.init();
+			const localExport = await localAdapter.exportData();
 			
-			if (localData) {
-				const data = JSON.parse(localData);
+			console.log('[MBT] Local data to sync:', localExport);
+			
+			// Check if there's any data to sync
+			const hasData = localExport.accounts?.length > 0 || 
+				localExport.categories?.length > 0 || 
+				localExport.recurringItems?.length > 0 || 
+				localExport.transactions?.length > 0;
+
+			if (hasData) {
+				// Upload to server (include session_id so sync works even if webhook is delayed)
+				const sessionId = $page.url.searchParams.get('session_id');
+				const syncUrl = sessionId ? `/api/sync?session_id=${sessionId}` : '/api/sync';
 				
-				// Check if there's any data to sync
-				const hasData = data.accounts?.length > 0 || 
-					data.categories?.length > 0 || 
-					data.recurringItems?.length > 0 || 
-					data.transactions?.length > 0;
+				const res = await fetch(syncUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(localExport)
+				});
 
-				if (hasData) {
-					// Upload to server (include session_id so sync works even if webhook is delayed)
-					const sessionId = $page.url.searchParams.get('session_id');
-					const syncUrl = sessionId ? `/api/sync?session_id=${sessionId}` : '/api/sync';
-					
-					const res = await fetch(syncUrl, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: localData
-					});
-
-					if (!res.ok) {
-						const errData = await res.json();
-						throw new Error(errData.error || 'Sync failed');
-					}
+				if (!res.ok) {
+					const errData = await res.json();
+					throw new Error(errData.error || 'Sync failed');
 				}
+				
+				console.log('[MBT] Data synced to cloud');
+			} else {
+				console.log('[MBT] No local data to sync');
 			}
 
+			// Refresh auth to get updated subscription status
+			await checkAuth();
+			
 			// Switch to API storage now that we're premium
 			await switchToApiStorage();
 			
@@ -68,6 +76,7 @@
 			
 			syncComplete = true;
 		} catch (err: any) {
+			console.error('[MBT] Sync error:', err);
 			error = err.message || 'Failed to sync data';
 		} finally {
 			syncing = false;
