@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { register, isLoggedIn, isPremium, switchToApiStorage } from '$lib/stores';
+	import { register, isLoggedIn, startCheckout } from '$lib/stores';
 	import { onMount } from 'svelte';
-	import { get } from 'svelte/store';
 
 	let email = $state('');
 	let password = $state('');
@@ -10,13 +9,15 @@
 	let error = $state('');
 	let loading = $state(false);
 
-	// Where to redirect after registration (default to upgrade flow)
-	const redirectTo = '/upgrade';
-
 	onMount(async () => {
-		// If already logged in, go straight to upgrade
+		// If already logged in, go straight to checkout
 		if ($isLoggedIn) {
-			goto(redirectTo);
+			loading = true;
+			const result = await startCheckout();
+			if (!result.success) {
+				error = result.error || 'Failed to start checkout';
+				loading = false;
+			}
 			return;
 		}
 	});
@@ -43,13 +44,17 @@
 
 		const result = await register(email, password);
 
-		loading = false;
-
 		if (result.success) {
-			// Account created, now continue to upgrade/checkout
-			goto(redirectTo);
+			// Account created, go straight to Stripe checkout
+			const checkoutResult = await startCheckout();
+			if (!checkoutResult.success) {
+				error = checkoutResult.error || 'Failed to start checkout';
+				loading = false;
+			}
+			// If successful, user is redirected to Stripe
 		} else {
 			error = result.error || 'Something went wrong';
+			loading = false;
 		}
 	};
 </script>
