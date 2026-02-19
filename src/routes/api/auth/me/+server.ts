@@ -13,7 +13,8 @@ export const GET: RequestHandler = async ({ cookies }) => {
 		user: {
 			id: user.id,
 			email: user.email,
-			subscription_status: user.subscription_status
+			subscription_status: user.subscription_status,
+			is_admin: user.is_admin
 		}
 	});
 };

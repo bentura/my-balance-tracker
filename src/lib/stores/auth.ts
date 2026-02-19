@@ -6,6 +6,7 @@ export interface User {
 	id: number;
 	email: string;
 	subscription_status: 'free' | 'active' | 'cancelled' | 'past_due';
+	is_admin?: boolean;
 }
 
 export const currentUser = writable<User | null>(null);
@@ -13,6 +14,7 @@ export const authLoading = writable(true);
 
 export const isLoggedIn = derived(currentUser, $user => $user !== null);
 export const isPremium = derived(currentUser, $user => $user?.subscription_status === 'active');
+export const isAdmin = derived(currentUser, $user => $user?.is_admin === true);
 
 // Check auth status on load
 export async function checkAuth(): Promise<User | null> {

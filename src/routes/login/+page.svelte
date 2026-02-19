@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { login, register, isLoggedIn, isPremium, switchToApiStorage, initStore, checkAuth } from '$lib/stores';
+	import { login, register, isLoggedIn, isPremium, isAdmin, switchToApiStorage, initStore, checkAuth } from '$lib/stores';
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import { isBiometricAvailable, authenticateWithBiometric, hasBiometricSetup } from '$lib/biometric';
@@ -80,7 +80,12 @@
 			if (get(isPremium)) {
 				await switchToApiStorage();
 			}
-			goto('/dashboard');
+			// Redirect admins to admin panel, others to dashboard
+			if (get(isAdmin)) {
+				goto('/admin');
+			} else {
+				goto('/dashboard');
+			}
 		} else {
 			error = result.error || 'Something went wrong';
 		}
